@@ -1,0 +1,25 @@
+# `image` + `build` juntos: `docker compose build` constrói local e
+# `docker compose pull` baixa as mesmas tags do GHCR.
+services:
+  api:
+    build:
+      context: ./api
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    image: ghcr.io/${GHCR_OWNER:?defina GHCR_OWNER no .env (minúsculo)}/adec-api:${IMAGE_TAG:-latest}
+    env_file: ./api/.env
+    # Sem "ports": só acessível pela rede interna (via nginx do frontend).
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    image: ghcr.io/${GHCR_OWNER:?defina GHCR_OWNER no .env (minúsculo)}/adec-frontend:${IMAGE_TAG:-latest}
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
