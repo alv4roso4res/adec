@@ -1,10 +1,10 @@
 :root {
   --color-background: #0b0f1a;
 
-  --color-particle-1: #192af1;
-  --color-particle-2: #192af1;
-  --color-particle-3: #192af1;
-  --color-particle-4: #192af1;
+  --color-particle-1: #ffffff;
+  --color-particle-2: #ffffff;
+  --color-particle-3: #ffffff;
+  --color-particle-4: #ffffff;
 }
 
 html,
