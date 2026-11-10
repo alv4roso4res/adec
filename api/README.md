@@ -44,13 +44,17 @@ api/
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `GITHUB_TOKEN` | `""` | Token do GitHub (vazio = chamadas anônimas) |
+| `GITHUB_TOKEN` | `""` | Token classic com `public_repo` + `read:packages` (vazio = chamadas anônimas) |
 | `GITHUB_OWNER` / `GITHUB_REPO` | `""` | Repositório monitorado |
+| `GITHUB_WORKFLOW_FILE` | `ci.yml` | Arquivo do workflow de CI em `.github/workflows/` |
 | `TEAM_LOGINS` | `[]` | Logins do time: `ana,bia,caio` (ou JSON `["ana","bia"]`) |
-| `GHCR_PACKAGE` | `""` | Nome do pacote no GHCR |
+| `GHCR_IMAGES` | `["adec-api","adec-frontend"]` | Imagens no GHCR: `adec-api,adec-frontend` (ou JSON) |
+| `GHCR_OWNER` | `""` | Dono das imagens no GHCR (vazio = `GITHUB_OWNER`; sempre em minúsculas) |
 | `APP_VERSION` | `dev` | Versão em `/api/health`. No Docker vem da imagem; não defina no `.env` |
 | `ENABLE_WRITE_ACTIONS` | `false` | Liga ações que escrevem no GitHub |
-| `CACHE_TTL_SECONDS` | `15` | TTL do cache das respostas do GitHub |
+| `MERGE_METHOD` | `merge` | Método de merge dos PRs: `merge` ou `squash` |
+| `PULLS_LIMIT` | `5` | Quantos PRs abertos listar (mínimo 1) |
+| `HISTORY_LIMIT` | `20` | Quantos itens no histórico de runs/deploys (mínimo 1) |
 
 ## Desenvolvimento (sem Docker)
 
