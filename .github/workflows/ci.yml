@@ -1,0 +1,162 @@
+name: CI/CD
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# PRs cancelam runs antigos do mesmo PR; pushes na main nunca são cancelados
+# (esperam o run em andamento terminar).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o código do repositório
+        uses: actions/checkout@v7
+
+      # ---------- API (Python / uv) ----------
+      - name: Instalar o uv (com cache das dependências)
+        uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: api/uv.lock
+
+      - name: API - instalar dependências (uv.lock travado)
+        working-directory: api
+        run: uv sync --locked
+
+      - name: API - rodar os testes (pytest)
+        working-directory: api
+        run: uv run pytest -v
+
+      # ---------- Frontend (React / Vite) ----------
+      - name: Instalar o Node 22 (com cache do npm)
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Frontend - instalar dependências (npm ci)
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend - lint (ESLint)
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Frontend - build (tsc + Vite)
+        working-directory: frontend
+        run: npm run build
+
+      # ---------- Imagens Docker (só valida, não publica) ----------
+      - name: Calcular o SHA curto do commit
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Preparar o Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Docker - construir a imagem da API (sem publicar)
+        uses: docker/build-push-action@v7
+        with:
+          context: ./api
+          push: false
+          build-args: |
+            APP_VERSION=${{ env.SHORT_SHA }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+      - name: Docker - construir a imagem do frontend (sem publicar)
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend
+          push: false
+          build-args: |
+            APP_VERSION=${{ env.SHORT_SHA }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
+  deploy:
+    needs: build-test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Baixar o código do repositório
+        uses: actions/checkout@v7
+
+      - name: Calcular SHA curto e dono das imagens (minúsculo)
+        run: |
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Preparar o Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Entrar no GitHub Container Registry (ghcr.io)
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Só a tag imutável sha-<7 chars>; a latest é movida no passo "Promover".
+      - name: Publicar a imagem da API (tag sha)
+        uses: docker/build-push-action@v7
+        with:
+          context: ./api
+          push: true
+          tags: ghcr.io/${{ env.OWNER }}/adec-api:sha-${{ env.SHORT_SHA }}
+          build-args: |
+            APP_VERSION=${{ env.SHORT_SHA }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+      - name: Publicar a imagem do frontend (tag sha)
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend
+          push: true
+          tags: ghcr.io/${{ env.OWNER }}/adec-frontend:sha-${{ env.SHORT_SHA }}
+          build-args: |
+            APP_VERSION=${{ env.SHORT_SHA }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
+      # Só roda se as duas publicações acima deram certo: a produção (que
+      # observa a latest) nunca recebe uma imagem nova e a outra velha.
+      - name: Promover a tag latest (API e frontend)
+        run: |
+          for img in adec-api adec-frontend; do
+            docker buildx imagetools create \
+              --tag "ghcr.io/$OWNER/$img:latest" \
+              "ghcr.io/$OWNER/$img:sha-$SHORT_SHA"
+          done
+
+      - name: Escrever o resumo do deploy
+        run: |
+          {
+            echo "## Imagens publicadas no GHCR"
+            echo
+            echo "| Imagem | Tag do commit | Tag promovida |"
+            echo "| --- | --- | --- |"
+            for img in adec-api adec-frontend; do
+              echo "| \`ghcr.io/$OWNER/$img\` | \`sha-$SHORT_SHA\` | \`latest\` |"
+            done
+            echo
+            echo "Para atualizar a produção (o \`watch-deploy.sh\` faz isso sozinho):"
+            echo
+            echo '```bash'
+            echo 'docker compose pull && docker compose up -d'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
