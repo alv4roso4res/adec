@@ -6,6 +6,8 @@ from fastapi import FastAPI
 
 from api.config import Settings, get_settings
 from api.errors import register_error_handlers
+from api.github.cache import ResponseCache
+from api.github.client import GitHubClient
 from api.routes import health
 
 GITHUB_API_URL = "https://api.github.com"
@@ -32,6 +34,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             timeout=10.0,
         ) as client:
             app.state.http_client = client
+            # Um cache por app: vive enquanto o processo estiver de pé.
+            app.state.github_client = GitHubClient(client, settings, ResponseCache())
             yield
 
     app = FastAPI(

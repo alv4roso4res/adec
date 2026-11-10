@@ -51,7 +51,6 @@ name = "api"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "cachetools" },
     { name = "fastapi", extra = ["standard"] },
     { name = "pydantic-settings" },
 ]
@@ -65,7 +64,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cachetools", specifier = ">=7.2.6" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.162.0" },
     { name = "pydantic-settings", specifier = ">=2.16.1" },
 ]
@@ -75,15 +73,6 @@ dev = [
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", specifier = ">=1.4.1" },
     { name = "respx", specifier = ">=0.23.1" },
-]
-
-[[package]]
-name = "cachetools"
-version = "7.2.6"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f2/0f/e02be8857e0fc519a12337568f0bf4b0aad4f3a95d7303e9e9d9fbcca8c2/cachetools-7.2.6.tar.gz", hash = "sha256:1096513bdeed468ba505df3d123e4578a5a22c955f4a9ba3912fd71f3f95363a", size = 46662, upload-time = "2026-10-26T21:46:43.818Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/53/98/c8201d54b354857a3050a52751ca482eb143c404b387ab2c41a0f981b610/cachetools-7.2.6-py3-none-any.whl", hash = "sha256:8722e08fc36ae0838a9a0a2ab9935554720de3343a62dad7aae7c595854c8623", size = 19523, upload-time = "2026-10-26T21:46:42.277Z" },
 ]
 
 [[package]]

@@ -1,6 +1,9 @@
 import httpx
 from fastapi.testclient import TestClient
 
+from api.github.cache import ResponseCache
+from api.github.client import GitHubClient
+
 
 def test_health_returns_200(client):
     response = client.get("/api/health")
@@ -30,5 +33,11 @@ def test_lifespan_creates_and_closes_github_client(app, settings):
         assert http.headers["Accept"] == "application/vnd.github+json"
         assert "X-GitHub-Api-Version" in http.headers
         assert not http.is_closed
+
+        github = app.state.github_client
+        assert isinstance(github, GitHubClient)
+        assert github.http is http
+        assert github.settings is settings
+        assert isinstance(github.cache, ResponseCache)
 
     assert http.is_closed

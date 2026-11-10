@@ -20,13 +20,14 @@ api/
 ├── src/api/
 │   ├── main.py           create_app(settings=None) + app = create_app()
 │   ├── config.py         Settings (pydantic-settings) + get_settings() com lru_cache
-│   ├── deps.py           get_settings / get_http_client (leem de request.app.state)
+│   ├── deps.py           get_settings / get_http_client / get_github_client (leem de request.app.state)
 │   ├── errors.py         GitHubError + handler -> {"detail": ...}
-│   ├── github/client.py  GitHubClient (casca: httpx.AsyncClient + owner/repo)
+│   ├── github/cache.py   ResponseCache: TTL + ETag (a entrada expirada guarda o ETag) e lock por chave
+│   ├── github/client.py  GitHubClient: métodos de leitura do GitHub com cache, 304 e erros
 │   ├── routes/health.py  GET /api/health
 │   ├── services/         (vazio, virá depois)
-│   └── schemas/          (vazio, virá depois)
-├── tests/                conftest.py, routes/, services/, fixtures/
+│   └── schemas/common.py ApiModel (JSON em camelCase) + RunStatus
+├── tests/                conftest.py, github/, routes/, schemas/, services/, fixtures/
 ├── Dockerfile
 └── .env.example
 ```
@@ -36,6 +37,14 @@ api/
   `Accept: application/vnd.github+json`, `X-GitHub-Api-Version`) em
   `app.state.http_client` e o fecha no shutdown. O header `Authorization:
   Bearer` só é enviado quando `GITHUB_TOKEN` não está vazio.
+- No mesmo `lifespan` nasce o `GitHubClient` (com um `ResponseCache` próprio) em
+  `app.state.github_client`; as rotas o recebem por `Depends(get_github_client)`.
+  O client devolve os dicts crus do GitHub; quem transforma são os services.
+- Cache do client: TTLs fixos por recurso (runs/jobs 5s · PRs/checks/reviews 10s ·
+  commits 15s · pacotes 30s · contribuidores 60s · `/user` 1h). Depois do TTL a
+  requisição vai com `If-None-Match`; um **304 não gasta rate limit** e só renova a
+  validade. Chamadas iguais simultâneas viram uma requisição só (lock por chave).
+  Rate limit é detectado por `x-ratelimit-remaining: 0`; timeout/falha de rede → 502.
 - Mapeamento de erros do GitHub (`GitHubError`): 401/403 de autenticação → **502**,
   rate limit (429, ou 403 com `rate_limited=True`) → **503**, 405 no merge → **409**,
   demais 5xx → 502, outros 4xx mantêm o status.
