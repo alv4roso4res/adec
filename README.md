@@ -11,6 +11,13 @@ Monorepo do trabalho de DevOps (CI/CD):
 
 ## CI/CD
 
+O [roadmap de implementação](contexto_projeto_adec.md#roadmap-de-execução) registra a
+ordem dos próximos PRs e os critérios de conclusão de cada etapa.
+
+Antes de enviar um PR, execute `bash scripts/check-local.sh`. Para validar também
+os Dockerfiles, use `bash scripts/check-local.sh --docker` em uma máquina de
+desenvolvimento. As imagens de validação recebem a tag `check-local`.
+
 O pipeline está em [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (GitHub Actions).
 
 ### Gatilhos
