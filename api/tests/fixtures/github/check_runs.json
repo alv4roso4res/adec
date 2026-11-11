@@ -1,0 +1,19 @@
+{
+  "total_count": 2,
+  "check_runs": [
+    {
+      "id": 130265848370,
+      "name": "deploy",
+      "head_sha": "3a97b4d0ca1ac84a3cb03e1bc47af5a53912a9bb",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 130265326064,
+      "name": "build-test",
+      "head_sha": "3a97b4d0ca1ac84a3cb03e1bc47af5a53912a9bb",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ]
+}

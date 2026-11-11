@@ -1,0 +1,47 @@
+[
+  {
+    "number": 11,
+    "title": "feat/backend-team",
+    "state": "closed",
+    "draft": false,
+    "user": {
+      "login": "alv4roso4res",
+      "avatar_url": "https://avatars.githubusercontent.com/u/299255407?v=4"
+    },
+    "created_at": "2026-11-11T02:41:19Z",
+    "html_url": "https://github.com/alv4roso4res/adec/pull/11",
+    "head": {
+      "sha": "07fbc7cbd3d65f895d5307e7635f8defaa772b20"
+    }
+  },
+  {
+    "number": 10,
+    "title": "feat(api): rota de versão publicada vs. main (card 5)",
+    "state": "closed",
+    "draft": false,
+    "user": {
+      "login": "alv4roso4res",
+      "avatar_url": "https://avatars.githubusercontent.com/u/299255407?v=4"
+    },
+    "created_at": "2026-11-11T02:31:46Z",
+    "html_url": "https://github.com/alv4roso4res/adec/pull/10",
+    "head": {
+      "sha": "2096aa1d82895553846fd194f672db0b15c36c6f"
+    }
+  },
+  {
+    "number": 9,
+    "title": "feat(api): rota de commits da main (card 6)",
+    "state": "closed",
+    "draft": false,
+    "user": {
+      "login": "alv4roso4res",
+      "avatar_url": "https://avatars.githubusercontent.com/u/299255407?v=4"
+    },
+    "created_at": "2026-11-11T02:17:09Z",
+    "html_url": "https://github.com/alv4roso4res/adec/pull/9",
+    "head": {
+      "sha": "a17bf7e08ab15c2e71d45d342022ceb3a0466a13"
+    }
+  }
+]

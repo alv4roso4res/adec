@@ -29,16 +29,19 @@ api/
 │   ├── routes/commits.py GET /api/commits (card 6)
 │   ├── routes/version.py GET /api/version (card 5)
 │   ├── routes/team.py    GET /api/team (card 4)
+│   ├── routes/pulls.py   GET /api/pulls (card 3, leitura)
 │   ├── services/pipeline.py funções puras: status normalizado, duração, stats
 │   ├── services/commits.py função pura: commits × runs (status do pipeline por SHA)
 │   ├── services/version.py função pura: running × latest no GHCR × main → state
 │   ├── services/team.py  função pura: TEAM_LOGINS × PRs × contribuidores
+│   ├── services/pulls.py função pura: PRs × detalhes × checks × reviews → badge, canApprove
 │   ├── schemas/common.py ApiModel (JSON em camelCase) + RunStatus
 │   ├── schemas/health.py HealthResponse
 │   ├── schemas/pipeline.py respostas dos cards 1 e 2
 │   ├── schemas/commits.py resposta do card 6
 │   ├── schemas/version.py resposta do card 5 + VersionState
-│   └── schemas/team.py   resposta do card 4
+│   ├── schemas/team.py   resposta do card 4
+│   └── schemas/pulls.py  resposta do card 3 + PullBadge
 ├── tests/                conftest.py, github/, routes/, schemas/, services/, fixtures/
 ├── Dockerfile
 └── .env.example
@@ -84,6 +87,7 @@ docstring. O `tests/test_openapi.py` reprova o que faltar e diz qual rota/campo.
 | `GET /api/commits?limit=` | 6. Commits da main | `[{sha, shortSha, message, author: {login, name, avatarUrl}, committedAt, htmlUrl, pipelineStatus}]` |
 | `GET /api/version` | 5. Versão publicada vs. main | `{running, mainSha, images: [{name, publishedSha}], state}` |
 | `GET /api/team` | 4. Integrantes | `[{login, avatarUrl, prsOpen, prsMerged, commits, meetsRequirement}]` |
+| `GET /api/pulls` | 3. PRs abertos | `[{number, title, author: {login, avatarUrl}, createdAt, htmlUrl, headSha, checks: {passed, failed, pending}, approvals, badge, canApprove, canMerge}]` |
 
 - Fluxo: rota → `GitHubClient` → service **puro** (recebe os dicts crus e um `now`
   em UTC; não faz requisição, não lê o relógio, não altera a entrada) → schema.
@@ -135,6 +139,29 @@ docstring. O `tests/test_openapi.py` reprova o que faltar e diz qual rota/campo.
   sem merge). Pessoas fora do time são ignoradas. Busca `GET /pulls?state=all` (até
   100) e `GET /contributors` em paralelo; com `TEAM_LOGINS` vazio devolve `[]` sem
   chamar o GitHub.
+- `pulls`: até `PULLS_LIMIT` PRs abertos (mais novo primeiro). Para cada PR, em
+  paralelo: `GET /pulls/{n}` (`draft`, `mergeable_state`), `GET /commits/{sha}/check-runs`
+  e `GET /pulls/{n}/reviews`. `checks`: o filtro padrão `latest` do GitHub já traz só a
+  execução mais recente de cada check; não concluído → `pending`, `success` →
+  `passed`, `skipped`/`neutral` não contam, qualquer outra conclusão → `failed`.
+  `approvals` = revisores cujo último review (ignorando `COMMENTED`) é `APPROVED`.
+  `badge`, nesta ordem:
+
+  | `badge` | Quando |
+  |---|---|
+  | `draft` | PR em rascunho |
+  | `conflict` | `mergeable_state` = `dirty` |
+  | `checks_failed` | algum check falhou |
+  | `waiting_checks` | algum check pendente, ou nenhum check contado |
+  | `computing` | `mergeable_state` `unknown`, `null` ou desconhecido |
+  | `needs_approval` | `mergeable_state` = `blocked` |
+  | `ready` | `mergeable_state` `clean`, `unstable` ou `has_hooks` |
+
+  `canApprove` = `ENABLE_WRITE_ACTIONS` + dono do token conhecido + autor diferente
+  dele (sem diferenciar maiúsculas) + fora de rascunho + ainda sem aprovação vigente
+  dele. `canMerge` = `ENABLE_WRITE_ACTIONS`, **mesmo com o PR bloqueado** (a demo
+  mostra o GitHub recusando o merge). `GET /user` (dono do token) só é chamado com
+  `GITHUB_TOKEN` e escrita ligada; sem PRs abertos, só a lista é buscada.
 - Erros do GitHub seguem o mapeamento abaixo (ex.: rate limit → 503).
 
 ### Variáveis de ambiente (`api/.env`)

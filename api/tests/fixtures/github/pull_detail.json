@@ -1,0 +1,18 @@
+{
+  "number": 7,
+  "title": "feat(api): rotas de pipeline (cards 1 e 2)",
+  "state": "closed",
+  "draft": false,
+  "merged": true,
+  "mergeable": null,
+  "mergeable_state": "unknown",
+  "user": {
+    "login": "alv4roso4res",
+    "avatar_url": "https://avatars.githubusercontent.com/u/299255407?v=4"
+  },
+  "created_at": "2026-11-11T01:50:49Z",
+  "html_url": "https://github.com/alv4roso4res/adec/pull/7",
+  "head": {
+    "sha": "3a97b4d0ca1ac84a3cb03e1bc47af5a53912a9bb"
+  }
+}
