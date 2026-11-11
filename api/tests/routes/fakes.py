@@ -15,12 +15,17 @@ class FakeGitHubClient:
         runs: list[dict[str, Any]] | None = None,
         jobs: list[dict[str, Any]] | None = None,
         commits: list[dict[str, Any]] | None = None,
+        packages: dict[str, list[dict[str, Any]]] | None = None,
         error: GitHubError | None = None,
+        package_errors: dict[str, GitHubError] | None = None,
     ) -> None:
         self.runs = runs or []
         self.jobs = jobs or []
         self.commits = commits or []
+        self.packages = packages or {}
         self.error = error
+        # Erro só na leitura de uma imagem (ex.: 404 de pacote não publicado).
+        self.package_errors = package_errors or {}
         self.calls: list[tuple[str, dict[str, Any]]] = []
 
     def _record(self, name: str, kwargs: dict[str, Any]) -> None:
@@ -39,3 +44,9 @@ class FakeGitHubClient:
     async def list_commits(self, **kwargs: Any) -> list[dict[str, Any]]:
         self._record("list_commits", kwargs)
         return self.commits[: kwargs.get("limit") or None]
+
+    async def list_package_versions(self, image: str) -> list[dict[str, Any]]:
+        self._record("list_package_versions", {"image": image})
+        if image in self.package_errors:
+            raise self.package_errors[image]
+        return self.packages.get(image, [])

@@ -8,7 +8,7 @@ from api.config import Settings, get_settings
 from api.errors import register_error_handlers
 from api.github.cache import ResponseCache
 from api.github.client import GitHubClient
-from api.routes import commits, health, pipeline
+from api.routes import commits, health, pipeline, version
 
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_API_VERSION = "2022-11-28"
@@ -114,6 +114,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router, prefix="/api")
     app.include_router(pipeline.router, prefix="/api")
     app.include_router(commits.router, prefix="/api")
+    app.include_router(version.router, prefix="/api")
 
     return app
 

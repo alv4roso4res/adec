@@ -19,6 +19,14 @@ def commits(github_fixture) -> list[dict]:
 
 
 @pytest.fixture
+def packages(github_fixture) -> dict[str, list[dict]]:
+    return {
+        image: github_fixture(f"package_versions_{image}.json")
+        for image in ("adec-api", "adec-frontend")
+    }
+
+
+@pytest.fixture
 def use_fake(app, client):
     # `client` já rodou o lifespan; troca o GitHubClient criado lá pelo fake.
     def install(fake: FakeGitHubClient) -> FakeGitHubClient:
