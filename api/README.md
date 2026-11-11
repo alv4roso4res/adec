@@ -26,10 +26,13 @@ api/
 │   ├── github/client.py  GitHubClient: métodos de leitura do GitHub com cache, 304 e erros
 │   ├── routes/health.py  GET /api/health (HealthResponse)
 │   ├── routes/pipeline.py GET /api/pipeline/current e /api/pipeline/history (cards 1 e 2)
+│   ├── routes/commits.py GET /api/commits (card 6)
 │   ├── services/pipeline.py funções puras: status normalizado, duração, stats
+│   ├── services/commits.py função pura: commits × runs (status do pipeline por SHA)
 │   ├── schemas/common.py ApiModel (JSON em camelCase) + RunStatus
 │   ├── schemas/health.py HealthResponse
-│   └── schemas/pipeline.py respostas dos cards 1 e 2
+│   ├── schemas/pipeline.py respostas dos cards 1 e 2
+│   └── schemas/commits.py resposta do card 6
 ├── tests/                conftest.py, github/, routes/, schemas/, services/, fixtures/
 ├── Dockerfile
 └── .env.example
@@ -72,6 +75,7 @@ docstring. O `tests/test_openapi.py` reprova o que faltar e diz qual rota/campo.
 | `GET /api/health` | — | `{status, version}` |
 | `GET /api/pipeline/current` | 1. Status da main | `{run: {id, status, event, branch, headSha, commitMessage, actor, startedAt, durationSeconds, htmlUrl} \| null, jobs: [{name, status, durationSeconds, steps: [{name, status, number}]}]}` |
 | `GET /api/pipeline/history?limit=` | 2. Últimos runs | `{runs: [{id, status, event, branch, headSha, durationSeconds, createdAt}], stats: {total, successRate, avgDurationSeconds, deploys, byEvent}}` |
+| `GET /api/commits?limit=` | 6. Commits da main | `[{sha, shortSha, message, author: {login, name, avatarUrl}, committedAt, htmlUrl, pipelineStatus}]` |
 
 - Fluxo: rota → `GitHubClient` → service **puro** (recebe os dicts crus e um `now`
   em UTC; não faz requisição, não lê o relógio, não altera a entrada) → schema.
@@ -88,6 +92,13 @@ docstring. O `tests/test_openapi.py` reprova o que faltar e diz qual rota/campo.
   (cancelados, skipped e não concluídos ficam fora; `null` sem nenhum);
   `avgDurationSeconds` só de runs concluídos; `deploys` = push na `main` com
   sucesso; `byEvent` = contagem por evento.
+- `commits`: últimos commits da `main` (`limit` de 1 a 30, padrão 8). `message` é
+  só a 1ª linha; `shortSha` tem 7 caracteres; `author.login`/`avatarUrl` ficam
+  `null` quando o e-mail do commit não está ligado a uma conta do GitHub.
+  `pipelineStatus` = status do run mais recente (maior `created_at`) daquele SHA,
+  preferindo `push` a `pull_request`; `null` se o SHA não está nos runs recentes.
+  Os runs vêm da **mesma chamada** do card 2 (`fetch_history_runs`, sem `limit`),
+  então caem na mesma chave do cache: o cruzamento não gasta requisição extra.
 - Erros do GitHub seguem o mapeamento abaixo (ex.: rate limit → 503).
 
 ### Variáveis de ambiente (`api/.env`)
