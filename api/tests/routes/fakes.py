@@ -18,6 +18,10 @@ class FakeGitHubClient:
         packages: dict[str, list[dict[str, Any]]] | None = None,
         pulls: list[dict[str, Any]] | None = None,
         contributors: list[dict[str, Any]] | None = None,
+        pull_details: dict[int, dict[str, Any]] | None = None,
+        check_runs: dict[str, list[dict[str, Any]]] | None = None,
+        reviews: dict[int, list[dict[str, Any]]] | None = None,
+        user: dict[str, Any] | None = None,
         error: GitHubError | None = None,
         package_errors: dict[str, GitHubError] | None = None,
     ) -> None:
@@ -27,6 +31,11 @@ class FakeGitHubClient:
         self.packages = packages or {}
         self.pulls = pulls or []
         self.contributors = contributors or []
+        # Indexados pelo número do PR (check runs, pelo SHA do commit).
+        self.pull_details = pull_details or {}
+        self.check_runs = check_runs or {}
+        self.reviews = reviews or {}
+        self.user = user or {"login": "dono-do-token"}
         self.error = error
         # Erro só na leitura de uma imagem (ex.: 404 de pacote não publicado).
         self.package_errors = package_errors or {}
@@ -62,3 +71,19 @@ class FakeGitHubClient:
     async def list_contributors(self) -> list[dict[str, Any]]:
         self._record("list_contributors", {})
         return self.contributors
+
+    async def get_pull(self, number: int) -> dict[str, Any]:
+        self._record("get_pull", {"number": number})
+        return self.pull_details.get(number, {"number": number})
+
+    async def list_check_runs(self, sha: str) -> list[dict[str, Any]]:
+        self._record("list_check_runs", {"sha": sha})
+        return self.check_runs.get(sha, [])
+
+    async def list_reviews(self, number: int) -> list[dict[str, Any]]:
+        self._record("list_reviews", {"number": number})
+        return self.reviews.get(number, [])
+
+    async def get_authenticated_user(self) -> dict[str, Any]:
+        self._record("get_authenticated_user", {})
+        return self.user
