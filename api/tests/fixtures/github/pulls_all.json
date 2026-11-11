@@ -1,0 +1,102 @@
+[
+  {
+    "number": 10,
+    "title": "feat(api): rota de versão publicada vs. main (card 5)",
+    "state": "closed",
+    "merged_at": "2026-11-11T02:34:03Z",
+    "user": {
+      "login": "alv4roso4res",
+      "avatar_url": "https://avatars.githubusercontent.com/u/299255407?v=4"
+    }
+  },
+  {
+    "number": 9,
+    "title": "feat(api): rota de commits da main (card 6)",
+    "state": "closed",
+    "merged_at": "2026-11-11T02:19:32Z",
+    "user": {
+      "login": "alv4roso4res",
+      "avatar_url": "https://avatars.githubusercontent.com/u/299255407?v=4"
+    }
+  },
+  {
+    "number": 8,
+    "title": "docs(api): documentação OpenAPI completa e teste de convenção",
+    "state": "closed",
+    "merged_at": "2026-11-11T02:03:53Z",
+    "user": {
+      "login": "alv4roso4res",
+      "avatar_url": "https://avatars.githubusercontent.com/u/299255407?v=4"
+    }
+  },
+  {
+    "number": 7,
+    "title": "feat(api): rotas de pipeline (cards 1 e 2)",
+    "state": "closed",
+    "merged_at": "2026-11-11T01:52:50Z",
+    "user": {
+      "login": "alv4roso4res",
+      "avatar_url": "https://avatars.githubusercontent.com/u/299255407?v=4"
+    }
+  },
+  {
+    "number": 6,
+    "title": "feat(frontend): fundo lido da variável --color-background",
+    "state": "closed",
+    "merged_at": "2026-11-11T00:57:45Z",
+    "user": {
+      "login": "GustaReis-bit",
+      "avatar_url": "https://avatars.githubusercontent.com/u/200959764?v=4"
+    }
+  },
+  {
+    "number": 5,
+    "title": "feat(api): cache de respostas com TTL e ETag",
+    "state": "closed",
+    "merged_at": "2026-11-10T21:11:37Z",
+    "user": {
+      "login": "alv4roso4res",
+      "avatar_url": "https://avatars.githubusercontent.com/u/299255407?v=4"
+    }
+  },
+  {
+    "number": 4,
+    "title": "Feat/backend GitHub client",
+    "state": "closed",
+    "merged_at": "2026-11-10T21:11:36Z",
+    "user": {
+      "login": "alv4roso4res",
+      "avatar_url": "https://avatars.githubusercontent.com/u/299255407?v=4"
+    }
+  },
+  {
+    "number": 3,
+    "title": "docs: roadmap de execução e script de validação local",
+    "state": "closed",
+    "merged_at": "2026-11-10T20:21:59Z",
+    "user": {
+      "login": "alv4roso4res",
+      "avatar_url": "https://avatars.githubusercontent.com/u/299255407?v=4"
+    }
+  },
+  {
+    "number": 2,
+    "title": "feat(api): novas configurações e ApiModel em camelCase",
+    "state": "closed",
+    "merged_at": "2026-11-10T17:08:06Z",
+    "user": {
+      "login": "alv4roso4res",
+      "avatar_url": "https://avatars.githubusercontent.com/u/299255407?v=4"
+    }
+  },
+  {
+    "number": 1,
+    "title": "ci: pipeline de build, testes e deploy no GHCR",
+    "state": "closed",
+    "merged_at": "2026-11-10T14:22:11Z",
+    "user": {
+      "login": "alv4roso4res",
+      "avatar_url": "https://avatars.githubusercontent.com/u/299255407?v=4"
+    }
+  }
+]
