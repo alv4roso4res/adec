@@ -1,0 +1,889 @@
+/* ===================== Tema: vidro estilo iOS ===================== */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI',
+    Roboto, system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+
+  --text-1: rgba(255, 255, 255, 0.94);
+  --text-2: rgba(235, 240, 255, 0.62);
+  --text-3: rgba(235, 240, 255, 0.38);
+
+  /* Cores de estado no tom do iOS (modo escuro) */
+  --tone-success: #30d158;
+  --tone-failure: #ff453a;
+  --tone-running: #0a84ff;
+  --tone-queued: #ffd60a;
+  --tone-neutral: #8e8e93;
+
+  --glass-bg: linear-gradient(145deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.035));
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-radius: 26px;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 22px 22px;
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Manchas de luz atrás dos cards: dão o que o vidro "refratar". */
+.app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38vw 38vw at 12% 18%, rgba(10, 132, 255, 0.20), transparent 70%),
+    radial-gradient(34vw 34vw at 88% 82%, rgba(94, 92, 230, 0.20), transparent 70%),
+    radial-gradient(26vw 26vw at 62% 8%, rgba(48, 209, 88, 0.08), transparent 70%);
+}
+
+/* ===================== vidro líquido (Liquid Glass) =====================
+ * Três camadas empilhadas no mesmo elemento:
+ *   1. o próprio .glass   -> o "corpo" do vidro: desfoca e satura o que está atrás;
+ *   2. ::before           -> o brilho especular, que segue o mouse;
+ *   3. ::after            -> a borda (aro) de luz, mais forte perto do mouse.
+ * O conteúdo fica por cima de tudo (z-index 2).
+ * --mx/--my (posição do mouse) e --rx/--ry (inclinação) vêm do useGlassPointer.
+ */
+.glass {
+  --mx: 30%;
+  --my: 0%;
+  --rx: 0deg;
+  --ry: 0deg;
+  --lift: 0px;
+  --scale: 1;
+  --shine: 0;
+
+  position: relative;
+  isolation: isolate;
+  background:
+    /* tom levemente azulado, como o vidro sobre um fundo escuro */
+    linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04) 45%, rgba(255, 255, 255, 0.07)),
+    rgba(18, 24, 40, 0.28);
+  backdrop-filter: blur(30px) saturate(190%) brightness(1.06);
+  -webkit-backdrop-filter: blur(30px) saturate(190%) brightness(1.06);
+  border-radius: var(--glass-radius);
+  box-shadow:
+    /* espessura: luz entrando por cima e saindo por baixo */
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.08),
+    /* "lente": borda interna mais clara, como o vidro curvando a luz */
+    inset 0 0 18px rgba(255, 255, 255, 0.06),
+    /* sombra que dá profundidade */
+    0 20px 50px rgba(0, 0, 0, 0.40),
+    0 2px 6px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(var(--lift))
+    scale(var(--scale));
+  transform-style: preserve-3d;
+  /* curva "mola" no transform: passa um pouquinho do ponto e volta, como no iOS.
+     --shine também anima (ver @property abaixo), então o brilho acende suave. */
+  transition:
+    transform 0.6s cubic-bezier(0.22, 1.4, 0.36, 1),
+    box-shadow 0.5s ease,
+    --shine 0.45s ease;
+}
+
+.glass > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* 2. Brilho especular: um "holofote" suave onde o mouse está + reflexo fixo no topo. */
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(420px circle at var(--mx) var(--my), rgba(255, 255, 255, calc(0.16 * var(--shine))), transparent 45%),
+    radial-gradient(130% 70% at 0% 0%, rgba(255, 255, 255, 0.11), transparent 50%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 30%);
+  transition: opacity 0.4s ease;
+}
+
+/* 3. Aro de luz: borda de 1px feita com máscara (só a moldura aparece). */
+.glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(260px circle at var(--mx) var(--my), rgba(255, 255, 255, calc(0.85 * var(--shine))), transparent 60%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.08) 40%, rgba(255, 255, 255, 0.04) 60%, rgba(255, 255, 255, 0.22));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+/* Hover: o card "sobe", cresce um tiquinho, inclina seguindo o mouse e acende. */
+.glass.interactive:hover,
+.topbar.glass:hover {
+  --lift: -4px;
+  --scale: 1.012;
+  --shine: 1;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.45),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.10),
+    inset 0 0 24px rgba(255, 255, 255, 0.09),
+    0 30px 70px rgba(0, 0, 0, 0.50),
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 0 40px rgba(120, 160, 255, 0.10);
+}
+
+/* O cabeçalho é largo: só acende e sobe, sem inclinar. */
+.topbar.glass {
+  --rx: 0deg !important;
+  --ry: 0deg !important;
+}
+
+.topbar.glass:hover {
+  --lift: -2px;
+  --scale: 1;
+}
+
+/* Registrar --shine como número deixa o navegador animá-la (0 -> 1);
+   variável CSS comum só "pula" de um valor para o outro. */
+@property --shine {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+/* --------------------------- cabeçalho --------------------------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 10px 12px;
+  border-radius: 22px;
+  flex-shrink: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 18px;
+  background: linear-gradient(145deg, #0a84ff, #5e5ce6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 6px 18px rgba(10, 132, 255, 0.35);
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.brand-name {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--tone-success);
+}
+
+.live.is-off {
+  color: var(--tone-failure);
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 0 currentColor;
+  animation: live-ping 2s ease-out infinite;
+}
+
+.live.is-off .live-dot {
+  animation: none;
+}
+
+@keyframes live-ping {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 60%, transparent); }
+  100% { box-shadow: 0 0 0 8px transparent; }
+}
+
+.clock {
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+/* ----------------------------- grade ----------------------------- */
+.grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1.15fr 1.3fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  grid-template-areas:
+    'pipeline pulls   version'
+    'history  commits team';
+  gap: 16px;
+}
+
+.area-pipeline { grid-area: pipeline; }
+.area-history { grid-area: history; }
+.area-pulls { grid-area: pulls; }
+.area-commits { grid-area: commits; }
+.area-version { grid-area: version; }
+.area-team { grid-area: team; }
+
+/* ------------------------------ card ------------------------------ */
+.card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 18px 16px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.card-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  color: var(--text-1);
+  background: rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.card-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.card-sync {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.card-sync.is-stale {
+  color: var(--tone-queued);
+}
+
+.card-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.card-link {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.card-link:hover {
+  color: var(--text-1);
+}
+
+/* Carregando / erro */
+.card-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+
+.card-state.is-error {
+  align-items: center;
+  text-align: center;
+  color: var(--tone-failure);
+}
+
+.card-state.is-error p {
+  margin: 0;
+  max-width: 28ch;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.skeleton {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.06));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.skeleton.short {
+  width: 60%;
+}
+
+@keyframes shimmer {
+  to { background-position: -200% 0; }
+}
+
+/* ------------------------- texto e utilidades ------------------------- */
+.muted { color: var(--text-2); }
+.small { font-size: 12px; }
+.mono { font-family: var(--font-mono); }
+.nowrap { white-space: nowrap; }
+
+.empty {
+  margin: auto 0;
+  color: var(--text-2);
+  font-size: 13px;
+  text-align: center;
+}
+
+.empty.big {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-3);
+}
+
+.empty.big p {
+  margin: 4px 0 0;
+  font-size: 15px;
+  color: var(--text-1);
+}
+
+.empty.big .muted {
+  font-size: 12px;
+}
+
+/* Cor por estado: define --tone e os componentes usam currentColor/var. */
+.tone-success { --tone: var(--tone-success); }
+.tone-failure { --tone: var(--tone-failure); }
+.tone-running { --tone: var(--tone-running); }
+.tone-queued { --tone: var(--tone-queued); }
+.tone-neutral { --tone: var(--tone-neutral); }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--tone, var(--text-1));
+  background: color-mix(in srgb, var(--tone, #fff) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tone, #fff) 30%, transparent);
+}
+
+.pill.version {
+  --tone: #fff;
+  color: var(--text-2);
+}
+
+/* ---------------------------- status ---------------------------- */
+.status-icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 40%, transparent);
+}
+
+.spinner {
+  width: 55%;
+  height: 55%;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--tone) 30%, transparent);
+  border-top-color: var(--tone);
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ----------------------- card 1: pipeline ----------------------- */
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.hero-label {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--tone);
+}
+
+.hero-timer {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.commit-line {
+  margin: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.jobs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.job {
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.job-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.job-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-title,
+.area-pipeline .hero-text > * {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.steps {
+  display: flex;
+  gap: 3px;
+  margin-top: 9px;
+}
+
+.step {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--tone);
+  opacity: 0.85;
+}
+
+.step.tone-neutral {
+  opacity: 0.3;
+}
+
+/* ----------------------- card 2: histórico ----------------------- */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 11px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.bars {
+  flex: 1;
+  min-height: 40px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.bar {
+  flex: 1;
+  border-radius: 5px 5px 2px 2px;
+  background: color-mix(in srgb, var(--tone) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tone) 70%, transparent);
+  transition: height 0.4s ease;
+}
+
+.bar.is-push {
+  background: var(--tone);
+}
+
+.legend {
+  display: flex;
+  gap: 14px;
+  font-size: 11px;
+}
+
+.legend .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border-radius: 2px;
+  border: 1px solid var(--text-2);
+}
+
+.legend .dot.is-push {
+  background: var(--text-2);
+}
+
+/* ------------------------ listas (3, 4, 5, 6) ------------------------ */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+}
+
+.row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.row-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-1);
+  text-decoration: none;
+}
+
+a.row-title:hover {
+  text-decoration: underline;
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.18);
+}
+
+.avatar.tiny {
+  width: 20px;
+  height: 20px;
+}
+
+.sha {
+  font-size: 12px;
+  color: var(--tone-running);
+  text-decoration: none;
+}
+
+.commit .sha {
+  flex-shrink: 0;
+}
+
+/* card 5: SHAs iguais ao da main em verde, diferentes em amarelo */
+.sha-list .row {
+  justify-content: space-between;
+}
+
+.sha-list .sha {
+  color: var(--text-1);
+}
+
+.sha.is-match {
+  color: var(--tone-success);
+}
+
+.sha.is-diff {
+  color: var(--tone-queued);
+}
+
+.hero-dot {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--tone);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--tone) 22%, transparent);
+}
+
+.area-version .hero-label {
+  font-size: 20px;
+}
+
+/* ---------------- telas menores que o projetor ---------------- */
+/* O alvo é 1366×768 sem rolagem; abaixo disso a grade se reorganiza e rola. */
+@media (max-width: 1100px) {
+  html,
+  body,
+  #root {
+    overflow: auto;
+  }
+
+  .app {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .grid {
+    flex: none;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(3, 340px);
+    grid-template-areas:
+      'pipeline pulls'
+      'history  commits'
+      'version  team';
+  }
+}
+
+@media (max-width: 680px) {
+  .app {
+    padding: 12px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(6, 320px);
+    grid-template-areas: 'pipeline' 'pulls' 'version' 'history' 'commits' 'team';
+  }
+
+  .clock {
+    display: none;
+  }
+}
+
+/* ========================= animações de hover ========================= */
+/* Mesma curva "mola" do vidro para tudo parecer parte do mesmo sistema. */
+:root {
+  --spring: cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+
+/* Ícone do card dá um "pulinho" quando o card acende. */
+.card-icon {
+  transition: transform 0.5s var(--spring), background 0.3s ease;
+}
+
+.card:hover .card-icon {
+  transform: scale(1.1) rotate(-6deg);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* Linhas das listas e jobs: viram uma "pílula" de vidro mais clara. */
+.row,
+.job,
+.stat {
+  transition:
+    transform 0.45s var(--spring),
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.row:hover,
+.job:hover,
+.stat:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+.avatar {
+  transition: transform 0.45s var(--spring), box-shadow 0.25s ease;
+}
+
+.row:hover .avatar {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+/* Gráfico: a barra sob o mouse cresce e as outras apagam (foco). */
+.bar {
+  transform-origin: bottom;
+  transition:
+    height 0.4s ease,
+    transform 0.4s var(--spring),
+    opacity 0.25s ease,
+    filter 0.25s ease;
+}
+
+.bars:hover .bar {
+  opacity: 0.35;
+}
+
+.bars .bar:hover {
+  opacity: 1;
+  transform: scaleY(1.06) scaleX(1.15);
+  filter: brightness(1.25) drop-shadow(0 0 8px var(--tone));
+}
+
+/* Faixas das etapas acendem no hover do job. */
+.job:hover .step {
+  opacity: 1;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--tone) 60%, transparent);
+}
+
+.brand-mark {
+  transition: transform 0.6s var(--spring);
+}
+
+.topbar:hover .brand-mark {
+  transform: rotate(-8deg) scale(1.06);
+}
+
+.pill {
+  transition: transform 0.4s var(--spring), background 0.25s ease;
+}
+
+.row:hover .pill {
+  transform: scale(1.05);
+}
+
+/* ======================== entrada ao carregar ======================== */
+/* Cada card surge subindo e "assentando", um depois do outro.
+   Usa translate/scale (propriedades separadas) para não brigar com o
+   transform do hover; fill-mode backwards = só vale antes de começar. */
+@keyframes glass-in {
+  from {
+    opacity: 0;
+    translate: 0 24px;
+    scale: 0.94;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+}
+
+.topbar,
+.grid > .card {
+  animation: glass-in 0.9s var(--spring) backwards;
+}
+
+.grid > .card:nth-child(1) { animation-delay: 0.08s; }
+.grid > .card:nth-child(2) { animation-delay: 0.16s; }
+.grid > .card:nth-child(3) { animation-delay: 0.24s; }
+.grid > .card:nth-child(4) { animation-delay: 0.32s; }
+.grid > .card:nth-child(5) { animation-delay: 0.40s; }
+.grid > .card:nth-child(6) { animation-delay: 0.48s; }
+
+/* Acessibilidade: quem pede menos movimento no sistema não vê inclinação nem entrada. */
+@media (prefers-reduced-motion: reduce) {
+  .glass,
+  .glass.interactive:hover {
+    --rx: 0deg !important;
+    --ry: 0deg !important;
+    --lift: 0px;
+    --scale: 1;
+  }
+
+  .topbar,
+  .grid > .card {
+    animation: none;
+  }
+
+  .row:hover,
+  .job:hover,
+  .stat:hover,
+  .bars .bar:hover {
+    transform: none;
+  }
+}
