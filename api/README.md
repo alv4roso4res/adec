@@ -21,13 +21,14 @@ api/
 │   ├── main.py           create_app(settings=None) + app = create_app()
 │   ├── config.py         Settings (pydantic-settings) + get_settings() com lru_cache
 │   ├── deps.py           get_settings / get_http_client / get_github_client (leem de request.app.state)
-│   ├── errors.py         GitHubError + handler -> {"detail": ...}
+│   ├── errors.py         GitHubError + handler -> {"detail": ...} + GITHUB_/WRITE_ERROR_RESPONSES (OpenAPI)
 │   ├── github/cache.py   ResponseCache: TTL + ETag (a entrada expirada guarda o ETag) e lock por chave
 │   ├── github/client.py  GitHubClient: métodos de leitura do GitHub com cache, 304 e erros
-│   ├── routes/health.py  GET /api/health
+│   ├── routes/health.py  GET /api/health (HealthResponse)
 │   ├── routes/pipeline.py GET /api/pipeline/current e /api/pipeline/history (cards 1 e 2)
 │   ├── services/pipeline.py funções puras: status normalizado, duração, stats
 │   ├── schemas/common.py ApiModel (JSON em camelCase) + RunStatus
+│   ├── schemas/health.py HealthResponse
 │   └── schemas/pipeline.py respostas dos cards 1 e 2
 ├── tests/                conftest.py, github/, routes/, schemas/, services/, fixtures/
 ├── Dockerfile
@@ -50,6 +51,19 @@ api/
 - Mapeamento de erros do GitHub (`GitHubError`): 401/403 de autenticação → **502**,
   rate limit (429, ou 403 com `rate_limited=True`) → **503**, 405 no merge → **409**,
   demais 5xx → 502, outros 4xx mantêm o status.
+
+### Documentação interativa (Swagger)
+
+A documentação completa (rotas, parâmetros, schemas com exemplos e erros) fica em
+**`/api/docs`**; o spec cru em `/api/openapi.json`.
+
+- dev: <http://localhost:8000/api/docs>
+- produção (Docker, via nginx): <http://localhost:8080/api/docs>
+
+Toda rota nova precisa de `summary`, `description`, `operation_id` e das respostas
+de erro (`responses=GITHUB_ERROR_RESPONSES` se fala com o GitHub); todo campo de
+schema precisa de `Field(description=..., examples=[...])` e todo modelo de
+docstring. O `tests/test_openapi.py` reprova o que faltar e diz qual rota/campo.
 
 ### Rotas
 

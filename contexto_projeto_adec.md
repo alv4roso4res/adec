@@ -427,6 +427,7 @@ invalidação após merge) · rotas (200 + formato; 403 nas rotas de escrita).
 - Os nomes de imagem/owner no GHCR são minúsculos.
 - Manter os nomes dos jobs `build-test` e `deploy` (o check obrigatório da proteção se chama `build-test`).
 - Mensagens/nomes de steps e textos da UI em português.
+- **Documentação OpenAPI obrigatória** (Swagger em `/api/docs`): toda rota nova tem `summary`, `description`, `operation_id` e as respostas de erro (`responses=GITHUB_ERROR_RESPONSES` se fala com o GitHub; `WRITE_ERROR_RESPONSES` nas de escrita); todo campo tem `Field(description, examples)` e todo modelo tem docstring; o `tests/test_openapi.py` reprova o que faltar. Tags novas entram em `OPENAPI_TAGS` (`main.py`).
 
 ## 11. Comandos úteis
 ```bash
