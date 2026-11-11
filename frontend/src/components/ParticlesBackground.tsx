@@ -7,6 +7,12 @@ async function initEngine(engine: Engine): Promise<void> {
   await loadSlim(engine)
 }
 
+// Lida do CSS: mudar --color-background no index.css troca o fundo da tela toda.
+function getBackgroundColor(): string {
+  const styles = getComputedStyle(document.documentElement)
+  return styles.getPropertyValue('--color-background').trim() || '#0b0f1a'
+}
+
 function getParticleColors(): string[] {
     const styles = getComputedStyle(document.documentElement)
 
@@ -26,7 +32,7 @@ function ParticlesBackground() {
   const options = useMemo<ISourceOptions>(
     () => ({
       fullScreen: { enable: true, zIndex: 0 },
-      background: { color: { value: '#0b0f1a' } },
+      background: { color: { value: getBackgroundColor() } },
       fpsLimit: 240,
       detectRetina: true,
       particles: {
