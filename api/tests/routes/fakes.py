@@ -16,6 +16,8 @@ class FakeGitHubClient:
         jobs: list[dict[str, Any]] | None = None,
         commits: list[dict[str, Any]] | None = None,
         packages: dict[str, list[dict[str, Any]]] | None = None,
+        pulls: list[dict[str, Any]] | None = None,
+        contributors: list[dict[str, Any]] | None = None,
         error: GitHubError | None = None,
         package_errors: dict[str, GitHubError] | None = None,
     ) -> None:
@@ -23,6 +25,8 @@ class FakeGitHubClient:
         self.jobs = jobs or []
         self.commits = commits or []
         self.packages = packages or {}
+        self.pulls = pulls or []
+        self.contributors = contributors or []
         self.error = error
         # Erro só na leitura de uma imagem (ex.: 404 de pacote não publicado).
         self.package_errors = package_errors or {}
@@ -50,3 +54,11 @@ class FakeGitHubClient:
         if image in self.package_errors:
             raise self.package_errors[image]
         return self.packages.get(image, [])
+
+    async def list_pulls(self, **kwargs: Any) -> list[dict[str, Any]]:
+        self._record("list_pulls", kwargs)
+        return self.pulls
+
+    async def list_contributors(self) -> list[dict[str, Any]]:
+        self._record("list_contributors", {})
+        return self.contributors

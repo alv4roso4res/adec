@@ -28,14 +28,17 @@ api/
 │   ├── routes/pipeline.py GET /api/pipeline/current e /api/pipeline/history (cards 1 e 2)
 │   ├── routes/commits.py GET /api/commits (card 6)
 │   ├── routes/version.py GET /api/version (card 5)
+│   ├── routes/team.py    GET /api/team (card 4)
 │   ├── services/pipeline.py funções puras: status normalizado, duração, stats
 │   ├── services/commits.py função pura: commits × runs (status do pipeline por SHA)
 │   ├── services/version.py função pura: running × latest no GHCR × main → state
+│   ├── services/team.py  função pura: TEAM_LOGINS × PRs × contribuidores
 │   ├── schemas/common.py ApiModel (JSON em camelCase) + RunStatus
 │   ├── schemas/health.py HealthResponse
 │   ├── schemas/pipeline.py respostas dos cards 1 e 2
 │   ├── schemas/commits.py resposta do card 6
-│   └── schemas/version.py resposta do card 5 + VersionState
+│   ├── schemas/version.py resposta do card 5 + VersionState
+│   └── schemas/team.py   resposta do card 4
 ├── tests/                conftest.py, github/, routes/, schemas/, services/, fixtures/
 ├── Dockerfile
 └── .env.example
@@ -80,6 +83,7 @@ docstring. O `tests/test_openapi.py` reprova o que faltar e diz qual rota/campo.
 | `GET /api/pipeline/history?limit=` | 2. Últimos runs | `{runs: [{id, status, event, branch, headSha, durationSeconds, createdAt}], stats: {total, successRate, avgDurationSeconds, deploys, byEvent}}` |
 | `GET /api/commits?limit=` | 6. Commits da main | `[{sha, shortSha, message, author: {login, name, avatarUrl}, committedAt, htmlUrl, pipelineStatus}]` |
 | `GET /api/version` | 5. Versão publicada vs. main | `{running, mainSha, images: [{name, publishedSha}], state}` |
+| `GET /api/team` | 4. Integrantes | `[{login, avatarUrl, prsOpen, prsMerged, commits, meetsRequirement}]` |
 
 - Fluxo: rota → `GitHubClient` → service **puro** (recebe os dicts crus e um `now`
   em UTC; não faz requisição, não lê o relógio, não altera a entrada) → schema.
@@ -122,6 +126,15 @@ docstring. O `tests/test_openapi.py` reprova o que faltar e diz qual rota/campo.
   (`fetch_main_commits` e `fetch_history_runs`), então só os pacotes geram
   requisição nova. **Exige token com `read:packages`**: sem ele o GitHub responde
   401 e a rota devolve 502.
+- `team`: um item por login de `TEAM_LOGINS`, **na ordem configurada**, mesmo sem
+  atividade (zeros e avatar `https://github.com/<login>.png`). Logins comparados sem
+  diferenciar maiúsculas; na saída, o login como o GitHub devolve. `prsOpen` = PRs
+  abertos; `prsMerged` = PRs com `merged_at`; `commits` = `contributions` de
+  `/contributors` (commits na branch padrão de contas vinculadas); `meetsRequirement`
+  = **regra do trabalho**, pelo menos 1 PR de autoria (aberto, mergeado ou fechado
+  sem merge). Pessoas fora do time são ignoradas. Busca `GET /pulls?state=all` (até
+  100) e `GET /contributors` em paralelo; com `TEAM_LOGINS` vazio devolve `[]` sem
+  chamar o GitHub.
 - Erros do GitHub seguem o mapeamento abaixo (ex.: rate limit → 503).
 
 ### Variáveis de ambiente (`api/.env`)

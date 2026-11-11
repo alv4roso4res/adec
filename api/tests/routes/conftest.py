@@ -27,6 +27,16 @@ def packages(github_fixture) -> dict[str, list[dict]]:
 
 
 @pytest.fixture
+def pulls(github_fixture) -> list[dict]:
+    return github_fixture("pulls_all.json")
+
+
+@pytest.fixture
+def contributors(github_fixture) -> list[dict]:
+    return github_fixture("contributors.json")
+
+
+@pytest.fixture
 def use_fake(app, client):
     # `client` já rodou o lifespan; troca o GitHubClient criado lá pelo fake.
     def install(fake: FakeGitHubClient) -> FakeGitHubClient:
