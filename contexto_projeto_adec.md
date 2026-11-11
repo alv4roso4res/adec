@@ -1,6 +1,6 @@
 # Contexto do projeto ADEC — Painel de CI/CD (FastAPI + React + GHCR)
 
-> Documento para contextualizar uma LLM sobre este projeto. Estado registrado em **03/11/2026**.
+> Documento para contextualizar uma LLM sobre este projeto. Estado registrado em **11/11/2026**.
 > Leia inteiro antes de propor mudanças. As decisões listadas aqui já foram tomadas e
 > testadas; não as reverta sem perguntar.
 
@@ -13,6 +13,8 @@ grupo de 3 pessoas. A entrega é **só uma apresentação de 15 minutos em sala*
 ao vivo a partir do repositório (não há relatório escrito).
 
 **Combinação do grupo (única na turma):** Python (FastAPI) + React (Vite) + **GitHub Container Registry (GHCR)**.
+
+**Integrantes (logins do GitHub):** `alv4roso4res` (Alvaro, dono do repo e do token do backend), `GustaReis-bit` (Gustavo) e `DrawnGZN`. Todos são colaboradores do repositório.
 
 ### Requisitos obrigatórios
 - Repositório **público** no GitHub.
@@ -115,33 +117,38 @@ Repositório: **`github.com/alv4roso4res/adec`** (público). Remote via SSH.
 
 ```
 ADEC_trabalho/
-├── .github/workflows/ci.yml     # pipeline (só na branch ci/pipeline, ainda não enviada)
+├── .github/workflows/ci.yml     # pipeline (build-test + deploy) — na main desde o PR #1
 ├── .env.example / .env          # GHCR_OWNER=alv4roso4res, IMAGE_TAG=latest, APP_VERSION=dev (.env fora do git)
 ├── .gitignore                   # .env, .idea/, node_modules/, dist/, __pycache__/, .venv/
-├── README.md                    # explica o CI/CD (na branch ci/pipeline)
+├── README.md                    # explica o CI/CD e aponta para este roadmap
+├── contexto_projeto_adec.md     # ESTE arquivo
 ├── docker-compose.yml
-├── scripts/watch-deploy.sh      # vigia de produção (WATCH_INTERVAL, padrão 20s)
+├── scripts/
+│   ├── watch-deploy.sh          # vigia de produção (WATCH_INTERVAL, padrão 20s)
+│   └── check-local.sh           # roda localmente o que o build-test roda (--docker p/ imagens)
 ├── api/
 │   ├── Dockerfile               # multi-stage, uv 0.13.6, python:3.13-slim, usuário não-root, HEALTHCHECK via urllib
-│   ├── .dockerignore
 │   ├── .env.example / .env      # .env fora do git
-│   ├── pyproject.toml / uv.lock # deps: fastapi[standard], pydantic-settings, cachetools; dev: pytest, pytest-asyncio, respx
+│   ├── pyproject.toml / uv.lock # deps: fastapi[standard], pydantic-settings; dev: pytest, pytest-asyncio, respx
 │   ├── src/api/
-│   │   ├── main.py              # create_app(settings) + app = create_app(); lifespan cria 1 httpx.AsyncClient
-│   │   ├── config.py            # Settings (pydantic-settings)
-│   │   ├── deps.py              # get_settings, get_http_client (de app.state)
-│   │   ├── errors.py            # GitHubError + handler (mapeamento de status)
-│   │   ├── github/client.py     # GitHubClient — só a casca
-│   │   ├── routes/health.py     # GET /api/health
-│   │   ├── schemas/             # vazio
-│   │   └── services/            # vazio
+│   │   ├── main.py              # create_app(settings); OPENAPI_TAGS; lifespan cria httpx.AsyncClient + GitHubClient
+│   │   ├── config.py            # Settings (ver §7 "Configuração")
+│   │   ├── deps.py              # get_settings, get_http_client, get_github_client (de app.state)
+│   │   ├── errors.py            # GitHubError + handler; GITHUB_ERROR_RESPONSES / WRITE_ERROR_RESPONSES (OpenAPI)
+│   │   ├── github/cache.py      # ResponseCache: TTL + ETag + lock por chave (single-flight)
+│   │   ├── github/client.py     # GitHubClient: métodos de leitura, TTLs por recurso, invalidate_pulls()
+│   │   ├── schemas/             # common (ApiModel, RunStatus, ErrorResponse), health, pipeline, commits, version, team
+│   │   ├── services/            # pipeline, commits, version, team (funções puras)
+│   │   └── routes/              # health, pipeline (fetch_history_runs compartilhada), commits, version, team
 │   └── tests/
-│       ├── conftest.py          # Settings de teste (_env_file=None), app, TestClient
-│       ├── test_config.py
-│       ├── test_errors.py
-│       ├── routes/test_health.py
-│       ├── services/.gitkeep
-│       └── fixtures/.gitkeep
+│       ├── conftest.py          # Settings de teste (_env_file=None), app, client, github_fixture
+│       ├── fixtures/github/     # JSON reais reduzidos: workflow_runs, run_jobs, commits
+│       ├── github/              # test_cache, test_client (respx)
+│       ├── services/            # test_pipeline, test_commits
+│       ├── routes/              # fakes.py (FakeGitHubClient), test_health, test_pipeline, test_commits
+│       ├── schemas/test_common.py
+│       ├── test_config.py, test_errors.py
+│       └── test_openapi.py      # trava a convenção de documentação (§10)
 └── frontend/
     ├── Dockerfile               # node:22-alpine → nginx:1.31.8-alpine
     ├── nginx.conf               # SPA + proxy /api/ + no-store em index.html e version.json
@@ -149,29 +156,21 @@ ADEC_trabalho/
     ├── .env.example             # VITE_API_URL=/api
     └── src/
         ├── App.tsx              # só <ParticlesBackground/> + <main class="app"/>
-        ├── index.css            # variáveis --color-background e --color-particle-1..4
-        ├── components/ParticlesBackground.tsx   # tsparticles v4 (fundo #0b0f1a FIXO no componente)
+        ├── index.css            # --color-background (fundo da tela toda) e --color-particle-1..4
+        ├── components/ParticlesBackground.tsx   # tsparticles v4; fundo lido de --color-background (PR #6)
         ├── services/api.ts      # request<T>() + ApiError; endpoints de exemplo (A/B/C) a substituir
         └── types/api.ts         # tipos de exemplo a substituir
 ```
 
-### Detalhes da API já existente
-
-**`config.py` — variáveis (lidas do `api/.env`):**
-| Variável | Padrão | Observação |
+### Rotas já implementadas (todas documentadas em `/api/docs`)
+| Rota | Card | Etapa |
 |---|---|---|
-| `GITHUB_TOKEN` | `""` | sem token = chamadas anônimas |
-| `GITHUB_OWNER` / `GITHUB_REPO` | `""` | repositório monitorado |
-| `TEAM_LOGINS` | `[]` | aceita `a,b,c` ou JSON |
-| `GHCR_PACKAGE` | `""` | **será substituída** por `GHCR_IMAGES` (ver §7) |
-| `APP_VERSION` | `"dev"` | no Docker vem do build-arg |
-| `ENABLE_WRITE_ACTIONS` | `false` | libera aprovar/mergear |
-| `CACHE_TTL_SECONDS` | `15` | |
-
-**`main.py`:** `create_app()` registra routers com `prefix="/api"`, docs em `/api/docs`,
-`openapi` em `/api/openapi.json`; o `lifespan` cria o `httpx.AsyncClient` com
-`base_url=https://api.github.com`, `Accept: application/vnd.github+json`,
-`X-GitHub-Api-Version: 2022-11-28` e `Authorization: Bearer` (só se houver token).
+| `GET /api/health` | — | base |
+| `GET /api/pipeline/current` | 1 | R4 |
+| `GET /api/pipeline/history?limit=` | 2 | R4 |
+| `GET /api/commits?limit=` | 6 | R5 |
+| `GET /api/version` | 5 | R6 |
+| `GET /api/team` | 4 | R7 |
 
 **`errors.py` — `GitHubError(status_code, message, rate_limited=False)` → status nosso:**
 | GitHub | Nossa resposta |
@@ -179,13 +178,10 @@ ADEC_trabalho/
 | 401 / 403 (auth) | 502 |
 | 403 com rate limit / 429 | 503 |
 | 405 (merge não permitido) | 409 |
-| ≥ 500 | 502 |
+| ≥ 500, timeout ou erro de rede | 502 |
 | outros | o mesmo status |
 
 Resposta de erro: `{"detail": "<mensagem>"}`.
-
-**Testes atuais:** health (status, versão, rotas antigas removidas, lifespan cria/fecha o client),
-config (padrões, parsing de `TEAM_LOGINS`), errors (mapeamento parametrizado + handler).
 
 ---
 
@@ -220,76 +216,58 @@ o run falha cedo com "Unable to resolve action" — basta ajustar a versão.
 
 ### ✅ Feito
 - Ideia do app e os 6 cards definidos.
-- Bootstrap da API (config, create_app, lifespan, erros, health) com testes passando.
-- Frontend base (Vite + React + partículas), proxy do Vite, geração de `version.json`.
-- Dockerfiles (API e frontend), nginx, docker-compose, `.dockerignore`, `.gitignore`.
-- Publicação manual no GHCR testada (tags `sha-` + promoção da `latest` com `imagetools`).
-- Pacotes `adec-api` e `adec-frontend` **públicos** e com **acesso Write para o Actions** do repositório `adec`.
-- Produção local com `watch-deploy.sh` testada: troca de versão ao vivo comprovada.
-- `buildx` instalado na máquina do Alvaro (`docker-buildx`, Ubuntu).
-- Repositório `alv4roso4res/adec` criado; `main` enviada (inclui `api/`; um `api/.git` aninhado foi removido).
-- Workflow `ci.yml` + README criados na branch **`ci/pipeline`** (1 commit); branch enviada para `origin` em 03/11/2026. PR ainda pendente.
+- Dockerfiles, nginx, docker-compose; publicação no GHCR (tags `sha-` + promoção da `latest`); pacotes públicos com acesso Write para o Actions.
+- Produção local com `watch-deploy.sh` testada (troca de versão ao vivo comprovada).
+- **Pipeline no ar (R1):** PR #1 → `build-test` verde no PR; merge → `deploy` verde. Todos os merges desde então passaram (runs de ~2 min).
+- **Branch `main` protegida (R2, classic rule):** PR obrigatório com 1 aprovação; check obrigatório `build-test`; "up to date" desligado; **"Do not allow bypassing" ligado**; force push e deleção bloqueados. Consequência: nem o dono mergeia sem aprovação de outro integrante.
+- Colaboradores: `GustaReis-bit` (ativo; já aprovou e mergeou PRs) e `DrawnGZN` (convidado).
+- **Backend R3–R7 na main** (cards 1, 2, 4, 5 e 6), com documentação OpenAPI obrigatória; R8 (card 3, leitura) commitada e a caminho do PR.
+- **Metade da R11:** fundo da tela vindo de `--color-background` (PR #6, do Gustavo).
+
+### Histórico de PRs
+| PR | Autor | Conteúdo | Etapa |
+|---|---|---|---|
+| #1 | alv4roso4res | `ci.yml` + README do CI/CD | R1 |
+| #2 | alv4roso4res | Settings novas + `ApiModel` camelCase | R3a |
+| #3 | alv4roso4res | Este roadmap + `scripts/check-local.sh` | docs |
+| #4 / #5 | alv4roso4res | `GitHubClient` de leitura / cache TTL + ETag (o #5 entrou junto com o #4) | R3b/R3c |
+| #6 | GustaReis-bit | Fundo lido de `--color-background` | R11 (parte) |
+| #7 | alv4roso4res | Rotas de pipeline (cards 1 e 2) | R4 |
+| #8 | alv4roso4res | Documentação OpenAPI completa + `test_openapi.py` | docs |
+| #9 | alv4roso4res | Rota de commits (card 6) | R5 |
+| #10 | alv4roso4res | Rota de versão (card 5) | R6 |
+| #11 | alv4roso4res | Rota de integrantes (card 4) | R7 |
 
 ### Roadmap de execução
 
-Atualizado após inspeção local em **03/11/2026**. Cada fase de código deve virar
-um PR pequeno; distribuir a autoria entre os três integrantes. A ordem abaixo
-preserva os contratos e as decisões das seções 7 e 8.
+Cada etapa de código vira um PR pequeno; distribuir a autoria entre os três integrantes.
 
-| Etapa | Entrega | Depende de | Critério de conclusão |
+| Etapa | Entrega | Depende de | Situação |
 |---|---|---|---|
-| R0 — Validar a base | Roadmap e `scripts/check-local.sh` | — | Testes da API, lint e build do frontend aprovados; builds Docker conferidos |
-| R1 — Publicar o pipeline | Enviar `ci/pipeline`, abrir PR e acompanhar Actions | R0 | `build-test` verde no PR; merge seguido de `deploy` verde, imagens publicadas e produção com o mesmo SHA |
-| R2 — Governança e demo de falha | Proteção da main, colaboradores e PR propositalmente quebrado | R1 | 1 aprovação e `build-test` obrigatórios, sem bypass; merge do PR vermelho recusado; branch preservada |
-| R3 — Base do backend | Configuração prevista na §7, `ApiModel`, cache TTL/ETag e client de leitura | R2 | Testes sem rede para cache, 304, expiração, erros e rate limit; camelCase e configuração cobertos |
-| R4 — Pipeline | Cards 1 e 2: schemas, services puros e rotas | R3 | Status, duração, estatísticas, cancelados e ausência de runs cobertos por testes |
-| R5 — Commits | Card 6 e cruzamento com runs em cache | R4 | Primeira linha da mensagem, autor e status corretos, sem chamada extra para runs |
-| R6 — Versão | Card 5, duas imagens e comparação de SHAs por prefixo | R4, R5 | Testes dos cinco estados e de versões divergentes entre API/frontend |
-| R7 — Equipe | Card 4 com todos os logins configurados | R3 | Integrante sem atividade aparece; pessoas externas não entram na contagem do time |
-| R8 — PRs: leitura | Card 3, checks, reviews, badges e permissões | R3 | Um teste por badge, incluindo PR próprio, draft e checks ausentes |
-| R9 — PRs: escrita | Aprovar/mergear, bloqueio por configuração e invalidação de cache | R8 | Escrita desligada retorna 403; erros do GitHub preservados/mapeados; cache invalidado após sucesso |
-| R10 — Painel | Grade dos seis cards, contratos reais, polling e estados de carregamento/erro | R4–R9 | Tela utilizável em 1366×768, falha de um card isolada e ações de PR funcionais |
-| R11 — Atualização visual | Recarregamento por `version.json`, reconexão e fundo vindo do CSS | R10 | PR de uma linha muda a cor após entrega; recarregamento automático observado |
-| R12 — Ensaio | Roteiro dividido, PRs de demo e plano B | R11 | Três integrantes com PR próprio; ensaio em 15 minutos e demonstrações de sucesso, bloqueio e atualização |
+| R0 — Validar a base | Roadmap e `scripts/check-local.sh` | — | ✅ 03/11 |
+| R1 — Publicar o pipeline | PR do `ci.yml`, `build-test` no PR e `deploy` no merge | R0 | ✅ PR #1 |
+| R2 — Governança e demo de falha | Proteção da main, colaboradores e PR propositalmente quebrado | R1 | 🟡 Proteção e colaboradores ✅ · **falta o PR com teste quebrado** (guardar a branch, sem mergear) |
+| R3 — Base do backend | Configuração, `ApiModel`, cache TTL/ETag e client de leitura | R2 | ✅ PRs #2, #4, #5 |
+| R4 — Pipeline | Cards 1 e 2 | R3 | ✅ PR #7 |
+| R5 — Commits | Card 6, cruzamento com runs em cache | R4 | ✅ PR #9 |
+| R6 — Versão | Card 5, duas imagens, comparação de SHAs por prefixo | R4, R5 | ✅ PR #10 |
+| R7 — Equipe | Card 4 com todos os logins configurados | R3 | ✅ PR #11 |
+| R8 — PRs: leitura | Card 3, checks, reviews, badges e permissões | R3 | 🔵 Commitada, falta o PR |
+| R9 — PRs: escrita | Aprovar/mergear, bloqueio por configuração, invalidação de cache | R8 | ⬜ |
+| R10 — Painel | Grade dos seis cards, contratos reais, polling, carregamento/erro | R4–R9 | ⬜ |
+| R11 — Atualização visual | Recarregamento por `version.json`, reconexão e fundo vindo do CSS | R10 | 🟡 Fundo ✅ (PR #6) · falta recarregamento/reconexão |
+| R12 — Ensaio | Roteiro dividido, PRs de demo e plano B | R11 | ⬜ |
 
-**R0 concluída em 03/11/2026:** `bash scripts/check-local.sh --docker` terminou
-com sucesso: 17 testes da API, instalação pelos lockfiles, lint, build do frontend,
-sintaxe dos scripts e builds Docker das duas imagens (`check-local`). Parte dos
-builds reutilizou cache local; o runner do Actions ainda precisa validar o workflow.
-O npm reportou 12 vulnerabilidades moderadas, a revisar em um PR de dependências
-sem aplicar atualizações forçadas durante a preparação da demonstração.
+### Pendências que não são código
+- **DrawnGZN sem PR próprio** (regra do trabalho). Confirmar que aceitou o convite; a R9 ou um PR do frontend (R10/R11) pode ser dele.
+- **PR com teste quebrado** para a demo do merge bloqueado (vale 15%).
+- No dia: **vigia rodando** antes de entrar na sala (`nohup ./scripts/watch-deploy.sh > watch-deploy.log 2>&1 &`) e `curl localhost:8080/api/health` mostrando o SHA do último merge.
 
-**R1 iniciada:** `git push -u origin ci/pipeline` concluído. Próxima ação: abrir
-o PR em https://github.com/alv4roso4res/adec/pull/new/ci/pipeline e acompanhar
-`build-test`. O envio contém o commit de pipeline preexistente; o roadmap, o script
-de validação e a atualização do README permanecem como alterações locais sem commit.
-
-**Atenção para R1:** promover duas tags `latest` é uma operação sequencial, sem
-transação entre imagens. O vigia pode observar uma atualização parcial se consultar
-o registro entre as promoções ou se a segunda falhar. Confirmar a igualdade das
-versões das duas imagens na demonstração; caso isso ocorra, repetir a promoção do
-mesmo SHA antes de continuar. A estratégia atual permanece, mas não garante
-atomicidade entre os dois pacotes.
-
-#### Checklist operacional de R1 e R2
-
-1. `git push -u origin ci/pipeline` e abrir o PR → ver o `build-test` rodar.
-2. Fazer o merge → ver o `deploy` publicar e o vigia atualizar a produção sozinho.
-3. **Proteger a `main`** (classic rule): PR obrigatório com **1 aprovação**; status check
-   obrigatório **`build-test`**; "require branches up to date" **desligado**;
-   **"Do not allow bypassing the above settings" ligado**.
-4. Convidar os 2 colegas como **colaboradores** (Settings → Collaborators) — necessário para criarem branches e para a aprovação deles contar.
-5. Criar um PR com teste quebrado de propósito, confirmar o merge bloqueado e **guardar a branch** (sem mergear) para a apresentação.
-
-### 🔜 Depois
-- Backend completo (plano na §7), em fases, cada fase = 1 PR (dividir entre os integrantes).
-- Frontend dos 6 cards (plano na §8).
-- Alguns testes com Vitest no frontend (opcional, mas bom).
-- Ensaiar a apresentação e preparar os PRs de demonstração.
+**Risco conhecido:** a promoção das duas `latest` é sequencial, sem transação entre imagens; o vigia pode pegar uma atualização parcial. Na demo, conferir que API e frontend estão no mesmo SHA; se não, repetir a promoção do mesmo SHA.
 
 ---
 
-## 7. Plano do backend (aprovado, ainda não implementado)
+## 7. Plano do backend (R3–R7 implementadas; R8–R9 pendentes)
 
 ### Princípio
 ```
@@ -360,20 +338,43 @@ de PRs após aprovar/mergear. Detectar rate limit por `x-ratelimit-remaining: 0`
   - **Comparar SHAs por prefixo** (Actions usa 7 chars; `git rev-parse --short` pode usar mais).
 - `GET /api/commits?limit=8` → `[{sha, shortSha, message (1ª linha), author:{login, avatarUrl}, committedAt, htmlUrl, pipelineStatus}]` — `pipelineStatus` cruzado com os runs já em cache (sem chamada extra).
 
-### Mudanças de configuração previstas
-| Variável | Mudança |
-|---|---|
-| `GHCR_PACKAGE` | sai → **`GHCR_IMAGES=adec-api,adec-frontend`** |
-| `GHCR_OWNER` | nova (padrão = `GITHUB_OWNER`) |
-| `GITHUB_WORKFLOW_FILE` | nova (padrão `ci.yml`) |
-| `MERGE_METHOD` | nova (`merge` ou `squash`, padrão `merge`) |
-| `PULLS_LIMIT` / `HISTORY_LIMIT` | novas (5 / 20) |
+### Configuração (`api/.env`) — implementada na R3a
+| Variável | Padrão | Observação |
+|---|---|---|
+| `GITHUB_TOKEN` | `""` | classic com `public_repo` + `read:packages`; vazio = anônimo |
+| `GITHUB_OWNER` / `GITHUB_REPO` | `""` | repositório monitorado |
+| `GITHUB_WORKFLOW_FILE` | `ci.yml` | workflow dos cards 1 e 2 |
+| `TEAM_LOGINS` | `[]` | `a,b,c` ou JSON |
+| `GHCR_IMAGES` | `adec-api,adec-frontend` | `a,b` ou JSON |
+| `GHCR_OWNER` | = `GITHUB_OWNER` | sempre minúsculo |
+| `APP_VERSION` | `dev` | no Docker vem do build-arg; não definir no `.env` |
+| `ENABLE_WRITE_ACTIONS` | `false` | libera aprovar/mergear |
+| `MERGE_METHOD` | `merge` | `merge` ou `squash` |
+| `PULLS_LIMIT` / `HISTORY_LIMIT` | 5 / 20 | `ge=1` |
+
+Saíram `GHCR_PACKAGE` e `CACHE_TTL_SECONDS` (os TTLs agora são fixos por recurso no client) e a dependência `cachetools`.
 
 **Token do backend (`api/.env`)**: classic com `public_repo` + `read:packages`. **Não** é o token
 de publicar imagens (`write:packages`), nem o `GITHUB_TOKEN` do Actions.
 
 Antes de existirem runs, os cards 1/2 ficam vazios: tratar vazio e, em dev, pode-se apontar
 `GITHUB_OWNER/REPO/WORKFLOW_FILE` para outro repositório público com Actions.
+
+### Decisões tomadas na implementação (R3–R5)
+- **Cache próprio** (`ResponseCache`) em vez do `cachetools.TTLCache`: a entrada expirada é mantida para reaproveitar o ETag (`If-None-Match` → 304 não gasta rate limit). Lock por chave = *single-flight* (duas requisições iguais simultâneas viram uma).
+- Client: parâmetros `None` não entram na query nem na chave; erros não são cacheados; timeout/erro de rede → 502; corpo de erro sem JSON → "Erro N do GitHub".
+- TTLs: runs/jobs 5 s · PRs/checks/reviews 10 s · commits 15 s · pacotes 30 s · contribuidores 60 s · `/user` 3600 s.
+- **O cache devolve o mesmo objeto**: services nunca alteram o que recebem (há teste para isso).
+- `RunStatus` ganhou **`skipped`** (job `deploy` quando o `build-test` falha). Normalização: queued/waiting/requested/pending → queued; in_progress; completed + success/cancelled; skipped/neutral → skipped; qualquer outra conclusão → failure.
+- **Deploy** (card 2) = run de `push` na `main` com status success (o run só fica verde se o deploy passar).
+- Card 1 usa `list_workflow_runs(branch="main", event="push", limit=1)`.
+- `fetch_history_runs()` (routes/pipeline.py) é a chamada única de runs dos cards 2 e 6: mesmos argumentos = mesma chave de cache.
+- Commits: `author` tem `name` além de `login`/`avatarUrl` (login nulo quando o e-mail não está ligado a uma conta); `pipelineStatus` = run mais recente do SHA, preferindo `push`, senão `pull_request`, senão null.
+
+### Detalhes já definidos para R7–R9
+- **Equipe:** logins comparados sem diferenciar maiúsculas; ordem = `TEAM_LOGINS`; integrante sem atividade aparece com zeros e avatar `https://github.com/<login>.png`; `meetsRequirement` = pelo menos 1 PR de autoria (aberto, mergeado ou fechado); `commits` vem de `/contributors` (commits na branch padrão de contas vinculadas).
+- **PRs (leitura):** checks contados com o filtro padrão `latest` do GitHub; `skipped`/`neutral` não contam; `approvals` = revisores cujo último review (ignorando COMMENTED) é APPROVED; `mergeable_state` clean/unstable/has_hooks → `ready`, blocked → `needs_approval`, unknown/null/outros → `computing`; sem token ou com escrita desligada, não chama `/user` e `canApprove` = false; `canApprove` também é false em draft.
+- **PRs (escrita):** chamadas sem cache; sucesso invalida o cache de PRs; mensagens do GitHub preservadas em `detail`; o compose publica a porta só em `127.0.0.1` (na rede da faculdade, ninguém mais aprova/mergeia com o token do Alvaro).
 
 ### Ordem de implementação (1 fase = 1 PR)
 1. Base: `ApiModel`, cache ETag, métodos de leitura do client, testes do client.
@@ -393,7 +394,7 @@ invalidação após merge) · rotas (200 + formato; 403 nas rotas de escrita).
 
 ---
 
-## 8. Plano do frontend (ainda não implementado)
+## 8. Plano do frontend (R10–R11)
 
 - Layout em grade 3 colunas × 2 linhas, `height: 100vh`, cada card com `overflow: hidden` e limite de itens. **Testar em 1366×768** (projetor).
   ```
@@ -403,7 +404,7 @@ invalidação após merge) · rotas (200 + formato; 403 nas rotas de escrita).
   Cabeçalho com nome do repo, indicador "ao vivo" e versão.
 - Polling por card (card 1: 5s se rodando, 30s parado; demais 10–60s).
 - **Recarregamento automático**: consultar `/version.json` a cada ~10s; se a versão mudar em relação à carregada, `location.reload()`. Durante a troca de container mostrar "reconectando…" em vez de erro.
-- **Fundo trocável por PR**: hoje o `ParticlesBackground` tem `#0b0f1a` fixo e o canvas cobre o `body`. Ajustar para ler `--color-background` do CSS, para que o PR de demo mude **uma linha** do `index.css` e a tela inteira troque de cor.
+- **Fundo trocável por PR** ✅ (PR #6): o `ParticlesBackground` e o `body` leem `--color-background`; o PR de demo muda **uma linha** do `index.css` e a tela inteira troca de cor (após o recarregamento automático).
 - Substituir os endpoints/tipos de exemplo em `services/api.ts` e `types/api.ts` pelos contratos da §7.
 
 ---
@@ -444,3 +445,13 @@ curl localhost:8080/api/health ; curl localhost:8080/version.json
 # Inspecionar a latest no GHCR
 docker buildx imagetools inspect ghcr.io/alv4roso4res/adec-frontend:latest
 ```
+
+---
+
+## 12. Dificuldades encontradas (para o minuto final da apresentação)
+- **Commit local que não subiu:** arquivos commitados só na `ci/pipeline` local "sumiram" ao trocar para a `main`. Recuperados com `git checkout ci/pipeline -- <arquivos>`. Lição: conferir `git status`/`git log origin/...` antes de abrir PR.
+- **Branch protegida sem bypass:** nem o dono do repo consegue mergear sem aprovação — o time passou a revisar os PRs uns dos outros.
+- **Vigia de produção parado:** o terminal fechou e a produção ficou um deploy atrás. Solução: `nohup` + log e checar `/api/health` antes da demo.
+- **PRs empilhados:** a R3c dependia da R3b ainda não publicada; resolvido mergeando na ordem com merge commit (não squash).
+- **Rate limit do GitHub:** com polling, ~4 chamadas por PR estourariam 5.000 req/h; resolvido com cache TTL + ETag (304 não conta) e single-flight.
+
