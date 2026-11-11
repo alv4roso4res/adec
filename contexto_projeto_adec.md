@@ -94,7 +94,7 @@ rodando, o merge bloqueado, o deploy e a versão nova entrando no ar.
 - **Duas imagens** no GHCR: `ghcr.io/alv4roso4res/adec-api` e `ghcr.io/alv4roso4res/adec-frontend` (nomes sempre minúsculos). Pacotes públicos.
 - **Frontend**: React compilado servido por **nginx**, que também faz proxy de `/api/*` para o container da API (mesma origem, sem CORS).
 - **API**: FastAPI/uvicorn, sem porta exposta ao host; só o nginx fala com ela pela rede interna do Docker.
-- **docker-compose.yml** na raiz orquestra os dois (frontend em `localhost:8080`).
+- **docker-compose.yml** na raiz orquestra os dois (frontend em `localhost:8080`, publicado só em `127.0.0.1`).
 - **Produção = notebook do Alvaro** rodando `scripts/watch-deploy.sh`, que a cada 20s faz
   `docker compose pull && docker compose up -d` da tag `latest` (o GHCR só guarda imagens, não executa nada).
 - **Versão** (`APP_VERSION`) = SHA curto (7 chars) do commit, embutido nas duas imagens no build.
@@ -133,19 +133,19 @@ ADEC_trabalho/
 │   ├── src/api/
 │   │   ├── main.py              # create_app(settings); OPENAPI_TAGS; lifespan cria httpx.AsyncClient + GitHubClient
 │   │   ├── config.py            # Settings (ver §7 "Configuração")
-│   │   ├── deps.py              # get_settings, get_http_client, get_github_client (de app.state)
+│   │   ├── deps.py              # get_settings, get_http_client, get_github_client (de app.state), require_write_actions
 │   │   ├── errors.py            # GitHubError + handler; GITHUB_ERROR_RESPONSES / WRITE_ERROR_RESPONSES (OpenAPI)
 │   │   ├── github/cache.py      # ResponseCache: TTL + ETag + lock por chave (single-flight)
-│   │   ├── github/client.py     # GitHubClient: métodos de leitura, TTLs por recurso, invalidate_pulls()
-│   │   ├── schemas/             # common (ApiModel, RunStatus, ErrorResponse), health, pipeline, commits, version, team
-│   │   ├── services/            # pipeline, commits, version, team (funções puras)
-│   │   └── routes/              # health, pipeline (fetch_history_runs compartilhada), commits, version, team
+│   │   ├── github/client.py     # GitHubClient: leitura com TTLs por recurso; approve_pull/merge_pull sem cache + invalidate_pulls()
+│   │   ├── schemas/             # common (ApiModel, RunStatus, ErrorResponse), health, pipeline, commits, version, team, pulls
+│   │   ├── services/            # pipeline, commits, version, team, pulls (funções puras)
+│   │   └── routes/              # health, pipeline (fetch_history_runs compartilhada), commits, version, team, pulls
 │   └── tests/
 │       ├── conftest.py          # Settings de teste (_env_file=None), app, client, github_fixture
-│       ├── fixtures/github/     # JSON reais reduzidos: workflow_runs, run_jobs, commits
+│       ├── fixtures/github/     # JSON reais reduzidos: runs, jobs, commits, pacotes, PRs, checks, reviews, contribuidores
 │       ├── github/              # test_cache, test_client (respx)
-│       ├── services/            # test_pipeline, test_commits
-│       ├── routes/              # fakes.py (FakeGitHubClient), test_health, test_pipeline, test_commits
+│       ├── services/            # um test_<card>.py por service
+│       ├── routes/              # fakes.py (FakeGitHubClient), um test_<rota>.py por rota (+ test_pulls_write)
 │       ├── schemas/test_common.py
 │       ├── test_config.py, test_errors.py
 │       └── test_openapi.py      # trava a convenção de documentação (§10)
@@ -162,15 +162,18 @@ ADEC_trabalho/
         └── types/api.ts         # tipos de exemplo a substituir
 ```
 
-### Rotas já implementadas (todas documentadas em `/api/docs`)
+### Rotas implementadas (todas documentadas em `/api/docs`)
 | Rota | Card | Etapa |
 |---|---|---|
-| `GET /api/health` | — | base |
+| `GET /api/health` | cabeçalho (versão, repositório, escrita ligada) | base / R9 |
 | `GET /api/pipeline/current` | 1 | R4 |
 | `GET /api/pipeline/history?limit=` | 2 | R4 |
 | `GET /api/commits?limit=` | 6 | R5 |
 | `GET /api/version` | 5 | R6 |
 | `GET /api/team` | 4 | R7 |
+| `GET /api/pulls` | 3 | R8 |
+| `POST /api/pulls/{number}/approve` | 3 (Aprovar) | R9 |
+| `POST /api/pulls/{number}/merge` | 3 (Merge) | R9 |
 
 **`errors.py` — `GitHubError(status_code, message, rate_limited=False)` → status nosso:**
 | GitHub | Nossa resposta |
@@ -221,7 +224,7 @@ o run falha cedo com "Unable to resolve action" — basta ajustar a versão.
 - **Pipeline no ar (R1):** PR #1 → `build-test` verde no PR; merge → `deploy` verde. Todos os merges desde então passaram (runs de ~2 min).
 - **Branch `main` protegida (R2, classic rule):** PR obrigatório com 1 aprovação; check obrigatório `build-test`; "up to date" desligado; **"Do not allow bypassing" ligado**; force push e deleção bloqueados. Consequência: nem o dono mergeia sem aprovação de outro integrante.
 - Colaboradores: `GustaReis-bit` (ativo; já aprovou e mergeou PRs) e `DrawnGZN` (convidado).
-- **Backend R3–R7 na main** (cards 1, 2, 4, 5 e 6), com documentação OpenAPI obrigatória; R8 (card 3, leitura) commitada e a caminho do PR.
+- **Backend completo (R3–R9):** os seis cards, aprovar/mergear PR pelo app e documentação OpenAPI obrigatória. R3–R8 na main; R9 commitada e a caminho do PR.
 - **Metade da R11:** fundo da tela vindo de `--color-background` (PR #6, do Gustavo).
 
 ### Histórico de PRs
@@ -237,6 +240,8 @@ o run falha cedo com "Unable to resolve action" — basta ajustar a versão.
 | #9 | alv4roso4res | Rota de commits (card 6) | R5 |
 | #10 | alv4roso4res | Rota de versão (card 5) | R6 |
 | #11 | alv4roso4res | Rota de integrantes (card 4) | R7 |
+| #12 | alv4roso4res | Rota de PRs abertos com badges (card 3, leitura) | R8 |
+| #13 | alv4roso4res | READMEs de execução local/produção; contexto duplicado corrigido | docs |
 
 ### Roadmap de execução
 
@@ -252,8 +257,8 @@ Cada etapa de código vira um PR pequeno; distribuir a autoria entre os três in
 | R5 — Commits | Card 6, cruzamento com runs em cache | R4 | ✅ PR #9 |
 | R6 — Versão | Card 5, duas imagens, comparação de SHAs por prefixo | R4, R5 | ✅ PR #10 |
 | R7 — Equipe | Card 4 com todos os logins configurados | R3 | ✅ PR #11 |
-| R8 — PRs: leitura | Card 3, checks, reviews, badges e permissões | R3 | 🔵 Commitada, falta o PR |
-| R9 — PRs: escrita | Aprovar/mergear, bloqueio por configuração, invalidação de cache | R8 | ⬜ |
+| R8 — PRs: leitura | Card 3, checks, reviews, badges e permissões | R3 | ✅ PR #12 |
+| R9 — PRs: escrita | Aprovar/mergear, bloqueio por configuração, invalidação de cache | R8 | ✅ branch `feat/backend-pulls-write` |
 | R10 — Painel | Grade dos seis cards, contratos reais, polling, carregamento/erro | R4–R9 | ⬜ |
 | R11 — Atualização visual | Recarregamento por `version.json`, reconexão e fundo vindo do CSS | R10 | 🟡 Fundo ✅ (PR #6) · falta recarregamento/reconexão |
 | R12 — Ensaio | Roteiro dividido, PRs de demo e plano B | R11 | ⬜ |
@@ -267,7 +272,7 @@ Cada etapa de código vira um PR pequeno; distribuir a autoria entre os três in
 
 ---
 
-## 7. Plano do backend (R3–R7 implementadas; R8–R9 pendentes)
+## 7. Plano do backend (implementado)
 
 ### Princípio
 ```
@@ -331,6 +336,7 @@ de PRs após aprovar/mergear. Detectar rate limit por `x-ratelimit-remaining: 0`
 - `POST /api/pulls/{n}/approve` e `POST /api/pulls/{n}/merge` → `{ok, message}`
   - dependência `require_write_actions` → 403 se `ENABLE_WRITE_ACTIONS=false`.
   - erros: 422 do GitHub (aprovar o próprio PR) → 422; 405 no merge → 409; 409 do GitHub → 409.
+- `GET /api/health` → `{status, version, repository, writeActionsEnabled}` — `repository` = `GITHUB_OWNER/GITHUB_REPO`; usado no cabeçalho do painel e no healthcheck da imagem.
 - `GET /api/team` → `[{login, avatarUrl, prsOpen, prsMerged, commits, meetsRequirement}]` — sempre lista todos de `TEAM_LOGINS`, mesmo com 0 PRs.
 - `GET /api/version` → `{ running, mainSha, images:[{name, publishedSha}], state }`
   - `publishedSha` = tag `sha-xxxx` que está na mesma versão de pacote que a `latest`.

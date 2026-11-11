@@ -12,11 +12,21 @@ def test_health_returns_200(client):
     assert response.json()["status"] == "ok"
 
 
-def test_health_returns_version_from_settings(client, settings):
+def test_health_returns_version_and_panel_metadata(client, settings):
     response = client.get("/api/health")
 
-    assert response.json() == {"status": "ok", "version": settings.app_version}
-    assert response.json()["version"] == "1.2.3-test"
+    assert response.json() == {
+        "status": "ok",
+        "version": "1.2.3-test",
+        "repository": "owner-teste/repo-teste",
+        "writeActionsEnabled": False,
+    }
+
+
+def test_health_reports_write_actions_enabled(client, settings):
+    settings.enable_write_actions = True
+
+    assert client.get("/api/health").json()["writeActionsEnabled"] is True
 
 
 def test_old_routes_are_gone(client):

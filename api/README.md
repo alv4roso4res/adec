@@ -20,16 +20,16 @@ api/
 ├── src/api/
 │   ├── main.py           create_app(settings=None) + app = create_app()
 │   ├── config.py         Settings (pydantic-settings) + get_settings() com lru_cache
-│   ├── deps.py           get_settings / get_http_client / get_github_client (leem de request.app.state)
+│   ├── deps.py           get_settings / get_http_client / get_github_client (leem de request.app.state) + require_write_actions
 │   ├── errors.py         GitHubError + handler -> {"detail": ...} + GITHUB_/WRITE_ERROR_RESPONSES (OpenAPI)
 │   ├── github/cache.py   ResponseCache: TTL + ETag (a entrada expirada guarda o ETag) e lock por chave
-│   ├── github/client.py  GitHubClient: métodos de leitura do GitHub com cache, 304 e erros
+│   ├── github/client.py  GitHubClient: leitura com cache, 304 e erros; approve_pull/merge_pull sem cache
 │   ├── routes/health.py  GET /api/health (HealthResponse)
 │   ├── routes/pipeline.py GET /api/pipeline/current e /api/pipeline/history (cards 1 e 2)
 │   ├── routes/commits.py GET /api/commits (card 6)
 │   ├── routes/version.py GET /api/version (card 5)
 │   ├── routes/team.py    GET /api/team (card 4)
-│   ├── routes/pulls.py   GET /api/pulls (card 3, leitura)
+│   ├── routes/pulls.py   GET /api/pulls + POST /api/pulls/{number}/approve e /merge (card 3)
 │   ├── services/pipeline.py funções puras: status normalizado, duração, stats
 │   ├── services/commits.py função pura: commits × runs (status do pipeline por SHA)
 │   ├── services/version.py função pura: running × latest no GHCR × main → state
@@ -41,7 +41,7 @@ api/
 │   ├── schemas/commits.py resposta do card 6
 │   ├── schemas/version.py resposta do card 5 + VersionState
 │   ├── schemas/team.py   resposta do card 4
-│   └── schemas/pulls.py  resposta do card 3 + PullBadge
+│   └── schemas/pulls.py  resposta do card 3 + PullBadge + WriteResult
 ├── tests/                conftest.py, github/, routes/, schemas/, services/, fixtures/
 ├── Dockerfile
 └── .env.example
@@ -70,10 +70,11 @@ A documentação completa (rotas, parâmetros, schemas com exemplos e erros) fic
 **`/api/docs`**; o spec cru em `/api/openapi.json`.
 
 - dev: <http://localhost:8000/api/docs>
-- produção (Docker, via nginx): <http://localhost:8080/api/docs>
+- produção (Docker, via nginx): <http://localhost:8080/api/docs> (só no próprio notebook)
 
 Toda rota nova precisa de `summary`, `description`, `operation_id` e das respostas
-de erro (`responses=GITHUB_ERROR_RESPONSES` se fala com o GitHub); todo campo de
+de erro (`responses=GITHUB_ERROR_RESPONSES` se fala com o GitHub, mais
+`WRITE_ERROR_RESPONSES` nas de escrita); todo campo de
 schema precisa de `Field(description=..., examples=[...])` e todo modelo de
 docstring. O `tests/test_openapi.py` reprova o que faltar e diz qual rota/campo.
 
@@ -81,13 +82,15 @@ docstring. O `tests/test_openapi.py` reprova o que faltar e diz qual rota/campo.
 
 | Rota | Card | Resposta (camelCase) |
 |---|---|---|
-| `GET /api/health` | — | `{status, version}` |
+| `GET /api/health` | Cabeçalho do painel (e healthcheck) | `{status, version, repository, writeActionsEnabled}` |
 | `GET /api/pipeline/current` | 1. Status da main | `{run: {id, status, event, branch, headSha, commitMessage, actor, startedAt, durationSeconds, htmlUrl} \| null, jobs: [{name, status, durationSeconds, steps: [{name, status, number}]}]}` |
 | `GET /api/pipeline/history?limit=` | 2. Últimos runs | `{runs: [{id, status, event, branch, headSha, durationSeconds, createdAt}], stats: {total, successRate, avgDurationSeconds, deploys, byEvent}}` |
 | `GET /api/commits?limit=` | 6. Commits da main | `[{sha, shortSha, message, author: {login, name, avatarUrl}, committedAt, htmlUrl, pipelineStatus}]` |
 | `GET /api/version` | 5. Versão publicada vs. main | `{running, mainSha, images: [{name, publishedSha}], state}` |
 | `GET /api/team` | 4. Integrantes | `[{login, avatarUrl, prsOpen, prsMerged, commits, meetsRequirement}]` |
 | `GET /api/pulls` | 3. PRs abertos | `[{number, title, author: {login, avatarUrl}, createdAt, htmlUrl, headSha, checks: {passed, failed, pending}, approvals, badge, canApprove, canMerge}]` |
+| `POST /api/pulls/{number}/approve` | 3. PRs abertos (botão Aprovar) | `{ok, message}` |
+| `POST /api/pulls/{number}/merge` | 3. PRs abertos (botão Merge) | `{ok, message}` |
 
 - Fluxo: rota → `GitHubClient` → service **puro** (recebe os dicts crus e um `now`
   em UTC; não faz requisição, não lê o relógio, não altera a entrada) → schema.
@@ -162,6 +165,20 @@ docstring. O `tests/test_openapi.py` reprova o que faltar e diz qual rota/campo.
   dele. `canMerge` = `ENABLE_WRITE_ACTIONS`, **mesmo com o PR bloqueado** (a demo
   mostra o GitHub recusando o merge). `GET /user` (dono do token) só é chamado com
   `GITHUB_TOKEN` e escrita ligada; sem PRs abertos, só a lista é buscada.
+- `health`: `repository` = `GITHUB_OWNER/GITHUB_REPO` e `writeActionsEnabled` =
+  `ENABLE_WRITE_ACTIONS` (metadados do cabeçalho do painel); não fala com o GitHub.
+- **Escrita** (`approve` e `merge`): exigem `ENABLE_WRITE_ACTIONS=true` — senão
+  **403** `"Ações de escrita estão desligadas"`, antes de qualquer chamada ao GitHub
+  (dependência `require_write_actions`). `number` ≥ 1 (senão 422). Chamadas **sem
+  cache**; depois de qualquer sucesso o cache de PRs é descartado (o próximo
+  `GET /api/pulls` já vem atualizado; commits e runs continuam em cache).
+  - `approve`: review `APPROVE` em nome do dono do token → `{"ok": true, "message":
+    "PR #7 aprovado"}`. Aprovar o próprio PR → **422** com a mensagem do GitHub.
+  - `merge`: `PUT /pulls/{n}/merge` com `MERGE_METHOD` → `{"ok": true, "message":
+    "PR #7 mergeado (3a97b4d)"}` (SHA curto do merge). PR bloqueado (sem aprovação,
+    checks vermelhos/pendentes) → GitHub 405 → **409** com a mensagem original. Essa
+    recusa é **esperada** na demo: prova ao vivo que a `main` está protegida.
+    409 do GitHub (branch do PR mudou) → 409.
 - Erros do GitHub seguem o mapeamento abaixo (ex.: rate limit → 503).
 
 ### Variáveis de ambiente (`api/.env`)
@@ -234,7 +251,9 @@ curl -I localhost:8080/version.json   # Cache-Control: no-store
 docker compose down
 ```
 
-- Só o frontend publica porta (**8080**). A API (8000) fica na rede interna e é
+- Só o frontend publica porta (**8080**), e **só em `127.0.0.1`**: as rotas de
+  escrita usam o token do Alvaro e não têm login, então ninguém na rede (ex.: a da
+  faculdade) pode acessar o painel e aprovar/mergear. A API (8000) fica na rede interna e é
   alcançada pelo nginx em `/api/` (o prefixo é mantido).
 - Versão embutida nas imagens: `APP_VERSION=abc1234 docker compose up -d --build`
   (aparece em `/api/health`, em `/version.json` e no label

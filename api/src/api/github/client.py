@@ -1,7 +1,8 @@
 """Leitura da API do GitHub com cache (TTL + ETag) e tradução de erros.
 
 Os métodos devolvem os dicts/listas crus do GitHub; quem transforma em schema
-são os services puros. Escrita (aprovar/mergear) fica para a etapa R9.
+são os services puros. A escrita (aprovar/mergear PR) passa por `_send`, sem
+cache, e invalida o cache de PRs depois de cada sucesso.
 """
 
 from typing import Any
@@ -80,6 +81,16 @@ class GitHubClient:
 
             raise _to_github_error(response)
 
+    async def _send(self, method: str, path: str, json: dict[str, Any]) -> Any:
+        """Escrita no GitHub, sem cache. Mesmos erros de `_get`."""
+        try:
+            response = await self.http.request(method, path, json=json)
+        except httpx.TransportError as exc:  # inclui TimeoutException
+            raise GitHubError(502, UNREACHABLE_MESSAGE) from exc
+        if not response.is_success:
+            raise _to_github_error(response)
+        return response.json() if response.content else None
+
     # -------------------------------------------------------------- actions
 
     async def list_workflow_runs(
@@ -128,6 +139,24 @@ class GitHubClient:
 
     async def list_reviews(self, number: int) -> list[dict[str, Any]]:
         return await self._get(f"{self._pulls_path}/{number}/reviews", ttl=TTL_PULLS)
+
+    async def approve_pull(self, number: int) -> dict[str, Any]:
+        """Aprova o PR em nome do dono do token (review APPROVE)."""
+        data = await self._send(
+            "POST", f"{self._pulls_path}/{number}/reviews", {"event": "APPROVE"}
+        )
+        self.invalidate_pulls()
+        return data
+
+    async def merge_pull(self, number: int) -> dict[str, Any]:
+        """Mergeia o PR com MERGE_METHOD; a resposta traz o `sha` do merge."""
+        data = await self._send(
+            "PUT",
+            f"{self._pulls_path}/{number}/merge",
+            {"merge_method": self.settings.merge_method},
+        )
+        self.invalidate_pulls()
+        return data
 
     def invalidate_pulls(self) -> None:
         """Descarta o cache de PRs (lista, detalhes e reviews) após escrita."""
