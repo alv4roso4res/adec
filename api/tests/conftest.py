@@ -1,4 +1,7 @@
-from collections.abc import Iterator
+import json
+from collections.abc import Callable, Iterator
+from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -29,3 +32,20 @@ def client(app) -> Iterator[TestClient]:
     # `with` é o que dispara o lifespan (cria/fecha o httpx.AsyncClient).
     with TestClient(app) as test_client:
         yield test_client
+
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures" / "github"
+
+
+@pytest.fixture
+def github_fixture() -> Callable[[str], Any]:
+    """Carrega um JSON real do GitHub salvo em tests/fixtures/github/.
+
+    Cada chamada lê o arquivo de novo, então o teste pode alterar o resultado
+    à vontade para derivar variações (in_progress, cancelled...).
+    """
+
+    def load(name: str) -> Any:
+        return json.loads((FIXTURES_DIR / name).read_text(encoding="utf-8"))
+
+    return load

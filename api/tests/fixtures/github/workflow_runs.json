@@ -1,0 +1,195 @@
+{
+  "total_count": 11,
+  "workflow_runs": [
+    {
+      "id": 42935390858,
+      "name": "CI/CD",
+      "event": "push",
+      "head_branch": "main",
+      "head_sha": "5ef37333051d1315423f73b75dec0ad76182796d",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-11T00:57:48Z",
+      "run_started_at": "2026-11-11T00:57:48Z",
+      "updated_at": "2026-11-11T00:59:46Z",
+      "html_url": "https://github.com/alv4roso4res/adec/actions/runs/42935390858",
+      "actor": {
+        "login": "alv4roso4res"
+      },
+      "head_commit": {
+        "message": "Merge pull request #6 from alv4roso4res/feat/frontend-fundo-css\n\nfeat(frontend): fundo lido da variável --color-background"
+      }
+    },
+    {
+      "id": 42931682530,
+      "name": "CI/CD",
+      "event": "pull_request",
+      "head_branch": "feat/frontend-fundo-css",
+      "head_sha": "4ed40c4980571aaf3ce11326aa93b591e5a96747",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-11T00:28:56Z",
+      "run_started_at": "2026-11-11T00:28:56Z",
+      "updated_at": "2026-11-11T00:30:20Z",
+      "html_url": "https://github.com/alv4roso4res/adec/actions/runs/42931682530",
+      "actor": {
+        "login": "GustaReis-bit"
+      },
+      "head_commit": {
+        "message": "feat(frontend): fundo lido da variável --color-background"
+      }
+    },
+    {
+      "id": 42902616537,
+      "name": "CI/CD",
+      "event": "push",
+      "head_branch": "main",
+      "head_sha": "b0525e3f401fddcfd07da1683d5d0ae428ad5ed1",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-10T21:11:38Z",
+      "run_started_at": "2026-11-10T21:11:38Z",
+      "updated_at": "2026-11-10T21:13:59Z",
+      "html_url": "https://github.com/alv4roso4res/adec/actions/runs/42902616537",
+      "actor": {
+        "login": "GustaReis-bit"
+      },
+      "head_commit": {
+        "message": "Merge pull request #4 from alv4roso4res/feat/backend-github-client\n\nFeat/backend GitHub client"
+      }
+    },
+    {
+      "id": 42902205980,
+      "name": "CI/CD",
+      "event": "pull_request",
+      "head_branch": "feat/backend-cache",
+      "head_sha": "794078f5cca2be8538fb3a543b10a12bc48f416d",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-10T21:09:10Z",
+      "run_started_at": "2026-11-10T21:09:10Z",
+      "updated_at": "2026-11-10T21:11:03Z",
+      "html_url": "https://github.com/alv4roso4res/adec/actions/runs/42902205980",
+      "actor": {
+        "login": "alv4roso4res"
+      },
+      "head_commit": {
+        "message": "feat(api): cache de respostas com TTL e ETag\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+      }
+    },
+    {
+      "id": 42902159110,
+      "name": "CI/CD",
+      "event": "pull_request",
+      "head_branch": "feat/backend-github-client",
+      "head_sha": "c76dc5312ef846813a09dfa8f596528017d3ce06",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-10T21:08:53Z",
+      "run_started_at": "2026-11-10T21:08:53Z",
+      "updated_at": "2026-11-10T21:11:07Z",
+      "html_url": "https://github.com/alv4roso4res/adec/actions/runs/42902159110",
+      "actor": {
+        "login": "alv4roso4res"
+      },
+      "head_commit": {
+        "message": "feat(api): GitHubClient de leitura com cache ETag\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+      }
+    },
+    {
+      "id": 42894569729,
+      "name": "CI/CD",
+      "event": "push",
+      "head_branch": "main",
+      "head_sha": "cf9e22aeea77806ff1b603d5bf875398d375bd33",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-10T20:22:01Z",
+      "run_started_at": "2026-11-10T20:22:01Z",
+      "updated_at": "2026-11-10T20:24:29Z",
+      "html_url": "https://github.com/alv4roso4res/adec/actions/runs/42894569729",
+      "actor": {
+        "login": "GustaReis-bit"
+      },
+      "head_commit": {
+        "message": "Merge pull request #3 from alv4roso4res/docs/roadmap\n\ndocs: roadmap de execução e script de validação local"
+      }
+    },
+    {
+      "id": 42893472346,
+      "name": "CI/CD",
+      "event": "pull_request",
+      "head_branch": "docs/roadmap",
+      "head_sha": "892f24e55ed8eaee9e0986086ea744410ea1d5eb",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-10T20:15:23Z",
+      "run_started_at": "2026-11-10T20:15:23Z",
+      "updated_at": "2026-11-10T20:16:51Z",
+      "html_url": "https://github.com/alv4roso4res/adec/actions/runs/42893472346",
+      "actor": {
+        "login": "alv4roso4res"
+      },
+      "head_commit": {
+        "message": "docs: roadmap de execução e script de validação local"
+      }
+    },
+    {
+      "id": 42861761839,
+      "name": "CI/CD",
+      "event": "push",
+      "head_branch": "main",
+      "head_sha": "11f7f6a6f90616b12c98f6746d412075352869df",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-10T17:08:09Z",
+      "run_started_at": "2026-11-10T17:08:09Z",
+      "updated_at": "2026-11-10T17:10:23Z",
+      "html_url": "https://github.com/alv4roso4res/adec/actions/runs/42861761839",
+      "actor": {
+        "login": "GustaReis-bit"
+      },
+      "head_commit": {
+        "message": "Merge pull request #2 from alv4roso4res/feat/backend-config-schemas\n\nfeat(api): novas configurações e ApiModel em camelCase"
+      }
+    },
+    {
+      "id": 42838936387,
+      "name": "CI/CD",
+      "event": "pull_request",
+      "head_branch": "feat/backend-config-schemas",
+      "head_sha": "54a5939367c2cf0d354de0a0034304ff2a7b60dc",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-10T14:54:54Z",
+      "run_started_at": "2026-11-10T14:58:36Z",
+      "updated_at": "2026-11-10T14:58:38Z",
+      "html_url": "https://github.com/alv4roso4res/adec/actions/runs/42838936387",
+      "actor": {
+        "login": "alv4roso4res"
+      },
+      "head_commit": {
+        "message": "feat(api): novas configurações e ApiModel em camelCase\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+      }
+    },
+    {
+      "id": 42833380862,
+      "name": "CI/CD",
+      "event": "push",
+      "head_branch": "main",
+      "head_sha": "0739906aede0d868f25f7c217fc94cd4eee6ffb3",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-10T14:22:14Z",
+      "run_started_at": "2026-11-10T14:22:14Z",
+      "updated_at": "2026-11-10T14:25:31Z",
+      "html_url": "https://github.com/alv4roso4res/adec/actions/runs/42833380862",
+      "actor": {
+        "login": "alv4roso4res"
+      },
+      "head_commit": {
+        "message": "Merge pull request #1 from alv4roso4res/ci/pipeline\n\nci: pipeline de build, testes e deploy no GHCR"
+      }
+    }
+  ]
+}
