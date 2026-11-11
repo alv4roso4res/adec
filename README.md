@@ -123,8 +123,10 @@ docker compose ps               # os dois serviços devem estar "running/healthy
 ```
 
 O painel fica em **http://localhost:8080** e o Swagger em
-**http://localhost:8080/api/docs**. Só o frontend (nginx) publica porta; a API
-fica na rede interna do Docker e é alcançada pelo nginx em `/api/`.
+**http://localhost:8080/api/docs**. Só o frontend (nginx) publica porta, e só em
+`127.0.0.1` (as rotas de aprovar/mergear usam o token do backend e não têm login:
+ninguém mais na rede consegue abrir o painel); a API fica na rede interna do Docker
+e é alcançada pelo nginx em `/api/`.
 
 ### 3. Conferir a versão no ar
 

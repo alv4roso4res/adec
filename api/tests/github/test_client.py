@@ -1,4 +1,5 @@
 import asyncio
+import json
 from collections.abc import AsyncIterator
 
 import httpx
@@ -316,3 +317,130 @@ async def test_list_pulls_and_commits_query_params(github, mock):
         "sha": "dev",
         "per_page": "8",
     }
+
+
+# ---------------------------------------------------------------- escrita
+
+
+async def test_approve_pull_sends_approve_event(github, mock):
+    route = mock.post(f"{REPO}/pulls/7/reviews").respond(
+        200, json={"id": 1, "state": "APPROVED"}
+    )
+
+    data = await github.approve_pull(7)
+
+    assert data == {"id": 1, "state": "APPROVED"}
+    assert route.call_count == 1
+    assert json.loads(route.calls.last.request.content) == {"event": "APPROVE"}
+
+
+@pytest.mark.parametrize("method", ["merge", "squash"])
+async def test_merge_pull_sends_merge_method_from_settings(http, mock, method):
+    github = GitHubClient(http, make_settings(merge_method=method), ResponseCache())
+    route = mock.put(f"{REPO}/pulls/7/merge").respond(
+        200, json={"sha": "abc1234def", "merged": True, "message": "Pull Request successfully merged"}
+    )
+
+    data = await github.merge_pull(7)
+
+    assert data["sha"] == "abc1234def"
+    assert json.loads(route.calls.last.request.content) == {"merge_method": method}
+
+
+@pytest.mark.parametrize(
+    ("call", "route_method", "path"),
+    [
+        ("approve_pull", "post", "/pulls/7/reviews"),
+        ("merge_pull", "put", "/pulls/7/merge"),
+    ],
+)
+async def test_write_success_invalidates_pulls_but_not_commits(
+    github, mock, call, route_method, path
+):
+    pulls = mock.get(f"{REPO}/pulls").respond(200, json=[])
+    commits = mock.get(f"{REPO}/commits").respond(200, json=[])
+    getattr(mock, route_method)(f"{REPO}{path}").respond(200, json={"sha": "abc1234"})
+
+    await github.list_pulls()
+    await github.list_commits()
+    await getattr(github, call)(7)
+    await github.list_pulls()
+    await github.list_commits()
+
+    assert pulls.call_count == 2  # voltou à rede
+    assert commits.call_count == 1  # continua em cache
+
+
+async def test_write_failure_keeps_pulls_cache(github, mock):
+    pulls = mock.get(f"{REPO}/pulls").respond(200, json=[])
+    mock.put(f"{REPO}/pulls/7/merge").respond(405, json={"message": "não"})
+
+    await github.list_pulls()
+    with pytest.raises(GitHubError):
+        await github.merge_pull(7)
+    await github.list_pulls()
+
+    assert pulls.call_count == 1
+
+
+async def test_writes_are_never_cached(github, mock):
+    route = mock.post(f"{REPO}/pulls/7/reviews").respond(200, json={"id": 1})
+
+    await github.approve_pull(7)
+    await github.approve_pull(7)
+
+    assert route.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("call", "route_method", "path", "status", "message", "http_status"),
+    [
+        (
+            "approve_pull",
+            "post",
+            "/pulls/7/reviews",
+            422,
+            "Unprocessable Entity: Can not approve your own pull request",
+            422,
+        ),
+        (
+            "merge_pull",
+            "put",
+            "/pulls/7/merge",
+            405,
+            "At least 1 approving review is required by reviewers with write access.",
+            409,
+        ),
+        (
+            "merge_pull",
+            "put",
+            "/pulls/7/merge",
+            409,
+            "Head branch was modified. Review and try the merge again.",
+            409,
+        ),
+    ],
+)
+async def test_write_errors_keep_github_message(
+    github, mock, call, route_method, path, status, message, http_status
+):
+    getattr(mock, route_method)(f"{REPO}{path}").respond(status, json={"message": message})
+
+    with pytest.raises(GitHubError) as info:
+        await getattr(github, call)(7)
+
+    assert info.value.status_code == status
+    assert info.value.http_status == http_status
+    assert info.value.message == message
+
+
+@pytest.mark.parametrize("call", ["approve_pull", "merge_pull"])
+async def test_write_timeout_maps_to_502(github, mock, call):
+    mock.post(f"{REPO}/pulls/7/reviews").mock(side_effect=httpx.ReadTimeout("timeout"))
+    mock.put(f"{REPO}/pulls/7/merge").mock(side_effect=httpx.ReadTimeout("timeout"))
+
+    with pytest.raises(GitHubError) as info:
+        await getattr(github, call)(7)
+
+    assert info.value.http_status == 502
+    assert info.value.message == "Não foi possível falar com o GitHub"

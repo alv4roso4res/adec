@@ -22,6 +22,7 @@ class FakeGitHubClient:
         check_runs: dict[str, list[dict[str, Any]]] | None = None,
         reviews: dict[int, list[dict[str, Any]]] | None = None,
         user: dict[str, Any] | None = None,
+        merge_result: dict[str, Any] | None = None,
         error: GitHubError | None = None,
         package_errors: dict[str, GitHubError] | None = None,
     ) -> None:
@@ -36,6 +37,7 @@ class FakeGitHubClient:
         self.check_runs = check_runs or {}
         self.reviews = reviews or {}
         self.user = user or {"login": "dono-do-token"}
+        self.merge_result = merge_result or {"sha": "abc1234def5678", "merged": True}
         self.error = error
         # Erro só na leitura de uma imagem (ex.: 404 de pacote não publicado).
         self.package_errors = package_errors or {}
@@ -87,3 +89,11 @@ class FakeGitHubClient:
     async def get_authenticated_user(self) -> dict[str, Any]:
         self._record("get_authenticated_user", {})
         return self.user
+
+    async def approve_pull(self, number: int) -> dict[str, Any]:
+        self._record("approve_pull", {"number": number})
+        return {"id": 1, "state": "APPROVED"}
+
+    async def merge_pull(self, number: int) -> dict[str, Any]:
+        self._record("merge_pull", {"number": number})
+        return self.merge_result

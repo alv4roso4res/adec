@@ -140,3 +140,26 @@ class PullItem(ApiModel):
         ),
         examples=[True],
     )
+
+
+class WriteResult(ApiModel):
+    """Resultado de uma ação de escrita (aprovar ou mergear PR) que deu certo.
+
+    Recusas do GitHub não chegam aqui: viram erro `{"detail": ...}` com a
+    mensagem original (403, 409 ou 422).
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"ok": True, "message": "PR #7 aprovado"},
+                {"ok": True, "message": "PR #7 mergeado (3a97b4d)"},
+            ]
+        }
+    )
+
+    ok: bool = Field(description="Sempre true numa resposta 200.", examples=[True])
+    message: str = Field(
+        description="Mensagem para o painel mostrar (no merge, com o SHA curto).",
+        examples=["PR #7 mergeado (3a97b4d)"],
+    )

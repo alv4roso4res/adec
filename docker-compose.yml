@@ -18,7 +18,9 @@ services:
         APP_VERSION: ${APP_VERSION:-dev}
     image: ghcr.io/${GHCR_OWNER:?defina GHCR_OWNER no .env (minúsculo)}/adec-frontend:${IMAGE_TAG:-latest}
     ports:
-      - "8080:80"
+      # Só no localhost: as rotas de escrita usam o token do Alvaro e não têm
+      # login; na rede da faculdade, ninguém mais pode aprovar/mergear.
+      - "127.0.0.1:8080:80"
     depends_on:
       api:
         condition: service_healthy

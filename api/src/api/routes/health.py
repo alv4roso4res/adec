@@ -15,10 +15,17 @@ router = APIRouter(tags=["health"])
     operation_id="get_health",
     summary="Saúde da API",
     description=(
-        "Confirma que a API está de pé e informa a versão em execução. Não fala "
-        "com o GitHub. Usado pelo healthcheck da imagem Docker da API."
+        "Confirma que a API está de pé e informa a versão em execução, o "
+        "repositório monitorado e se as ações de escrita estão ligadas "
+        "(metadados do cabeçalho do painel). Não fala com o GitHub. Usado "
+        "pelo healthcheck da imagem Docker da API."
     ),
-    response_description="API no ar e versão em execução.",
+    response_description="API no ar, versão em execução e metadados do painel.",
 )
 def health(settings: Annotated[Settings, Depends(get_settings)]) -> HealthResponse:
-    return HealthResponse(status="ok", version=settings.app_version)
+    return HealthResponse(
+        status="ok",
+        version=settings.app_version,
+        repository=f"{settings.github_owner}/{settings.github_repo}",
+        write_actions_enabled=settings.enable_write_actions,
+    )
