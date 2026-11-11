@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 
@@ -13,6 +13,15 @@ from api.services.commits import build_commits
 router = APIRouter(prefix="/commits", tags=["commits"])
 
 DEFAULT_LIMIT = 8
+
+
+async def fetch_main_commits(
+    github: GitHubClient,
+    limit: int = DEFAULT_LIMIT,
+) -> list[dict[str, Any]]:
+    """Commits da main do card 6. O card 5 (/api/version) usa esta MESMA
+    chamada, com o limite padrão: mesma chave do cache, sem requisição extra."""
+    return await github.list_commits(branch="main", limit=limit)
 
 
 @router.get(
@@ -46,6 +55,6 @@ async def commits(
         ),
     ] = DEFAULT_LIMIT,
 ) -> list[CommitItem]:
-    commits = await github.list_commits(branch="main", limit=limit)
+    commits = await fetch_main_commits(github, limit)
     runs = await fetch_history_runs(github, settings)
     return build_commits(commits, runs)

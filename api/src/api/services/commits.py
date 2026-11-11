@@ -19,11 +19,11 @@ SHORT_SHA_LENGTH = 7
 
 
 def build_commits(commits: Sequence[Raw], runs: Sequence[Raw]) -> list[CommitItem]:
-    runs_by_sha = _latest_run_by_sha(runs)
+    runs_by_sha = latest_run_by_sha(runs)
     return [_to_commit(commit, runs_by_sha.get(commit["sha"])) for commit in commits]
 
 
-def _latest_run_by_sha(runs: Sequence[Raw]) -> dict[str, Raw]:
+def latest_run_by_sha(runs: Sequence[Raw]) -> dict[str, Raw]:
     """Run escolhido para cada SHA: push primeiro, depois o mais recente.
 
     Commits que vieram de PR só têm run de pull_request; os da main têm push.

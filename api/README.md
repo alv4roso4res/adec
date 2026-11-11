@@ -27,12 +27,15 @@ api/
 │   ├── routes/health.py  GET /api/health (HealthResponse)
 │   ├── routes/pipeline.py GET /api/pipeline/current e /api/pipeline/history (cards 1 e 2)
 │   ├── routes/commits.py GET /api/commits (card 6)
+│   ├── routes/version.py GET /api/version (card 5)
 │   ├── services/pipeline.py funções puras: status normalizado, duração, stats
 │   ├── services/commits.py função pura: commits × runs (status do pipeline por SHA)
+│   ├── services/version.py função pura: running × latest no GHCR × main → state
 │   ├── schemas/common.py ApiModel (JSON em camelCase) + RunStatus
 │   ├── schemas/health.py HealthResponse
 │   ├── schemas/pipeline.py respostas dos cards 1 e 2
-│   └── schemas/commits.py resposta do card 6
+│   ├── schemas/commits.py resposta do card 6
+│   └── schemas/version.py resposta do card 5 + VersionState
 ├── tests/                conftest.py, github/, routes/, schemas/, services/, fixtures/
 ├── Dockerfile
 └── .env.example
@@ -76,6 +79,7 @@ docstring. O `tests/test_openapi.py` reprova o que faltar e diz qual rota/campo.
 | `GET /api/pipeline/current` | 1. Status da main | `{run: {id, status, event, branch, headSha, commitMessage, actor, startedAt, durationSeconds, htmlUrl} \| null, jobs: [{name, status, durationSeconds, steps: [{name, status, number}]}]}` |
 | `GET /api/pipeline/history?limit=` | 2. Últimos runs | `{runs: [{id, status, event, branch, headSha, durationSeconds, createdAt}], stats: {total, successRate, avgDurationSeconds, deploys, byEvent}}` |
 | `GET /api/commits?limit=` | 6. Commits da main | `[{sha, shortSha, message, author: {login, name, avatarUrl}, committedAt, htmlUrl, pipelineStatus}]` |
+| `GET /api/version` | 5. Versão publicada vs. main | `{running, mainSha, images: [{name, publishedSha}], state}` |
 
 - Fluxo: rota → `GitHubClient` → service **puro** (recebe os dicts crus e um `now`
   em UTC; não faz requisição, não lê o relógio, não altera a entrada) → schema.
@@ -99,6 +103,25 @@ docstring. O `tests/test_openapi.py` reprova o que faltar e diz qual rota/campo.
   preferindo `push` a `pull_request`; `null` se o SHA não está nos runs recentes.
   Os runs vêm da **mesma chamada** do card 2 (`fetch_history_runs`, sem `limit`),
   então caem na mesma chave do cache: o cruzamento não gasta requisição extra.
+- `version`: `running` = `APP_VERSION`; `mainSha` = último commit da `main`;
+  `publishedSha` de cada imagem de `GHCR_IMAGES` = a tag `sha-xxxxxxx` que está na
+  mesma versão de pacote que a `latest` (`null` se não há `latest` ou o pacote ainda
+  não existe — 404 não derruba o card). SHAs são comparados **por prefixo** (mínimo 7
+  caracteres). `state`, avaliado nesta ordem:
+
+  | `state` | Quando |
+  |---|---|
+  | `dev` | `APP_VERSION` não é um SHA (ex.: `dev`, fora do Docker) |
+  | `up_to_date` | a `latest` de **todas** as imagens e a versão rodando são a main |
+  | `restart_pending` | a `latest` de todas as imagens já é a main, mas a produção roda outra versão |
+  | `pipeline_failed` | a `latest` não é a main e o último run de **push** da main falhou/foi cancelado |
+  | `building` | qualquer outro caso: run da main na fila/rodando/ainda não criado, ou concluído com o GHCR ainda mostrando a `latest` anterior, ou imagens divergentes no meio da promoção |
+
+  Imagens com `latest` divergente (API movida, frontend não) nunca contam como
+  publicadas. Commits e runs vêm das **mesmas chamadas** dos cards 6 e 2
+  (`fetch_main_commits` e `fetch_history_runs`), então só os pacotes geram
+  requisição nova. **Exige token com `read:packages`**: sem ele o GitHub responde
+  401 e a rota devolve 502.
 - Erros do GitHub seguem o mapeamento abaixo (ex.: rate limit → 503).
 
 ### Variáveis de ambiente (`api/.env`)
