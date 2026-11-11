@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 
@@ -13,6 +13,17 @@ from api.services.pipeline import build_current, build_history
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
 Client = Annotated[GitHubClient, Depends(get_github_client)]
+
+
+async def fetch_history_runs(
+    github: GitHubClient,
+    settings: Settings,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """Runs do card 2. O card 6 (/api/commits) usa esta MESMA chamada, sem
+    `limit`: argumentos iguais caem na mesma chave do cache do GitHubClient e
+    o cruzamento commit × run não gasta requisição extra."""
+    return await github.list_workflow_runs(limit=limit or settings.history_limit)
 
 
 @router.get(
@@ -68,5 +79,5 @@ async def history(
         ),
     ] = None,
 ) -> PipelineHistory:
-    runs = await github.list_workflow_runs(limit=limit or settings.history_limit)
+    runs = await fetch_history_runs(github, settings, limit)
     return build_history(runs, now=datetime.now(UTC))

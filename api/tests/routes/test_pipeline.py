@@ -1,56 +1,6 @@
-from typing import Any
-
 import pytest
 
-from api.errors import GitHubError
-
-
-class FakeGitHubClient:
-    """Substitui o GitHubClient: devolve dados prontos e registra as chamadas."""
-
-    def __init__(
-        self,
-        runs: list[dict[str, Any]] | None = None,
-        jobs: list[dict[str, Any]] | None = None,
-        error: GitHubError | None = None,
-    ) -> None:
-        self.runs = runs or []
-        self.jobs = jobs or []
-        self.error = error
-        self.calls: list[tuple[str, dict[str, Any]]] = []
-
-    async def list_workflow_runs(self, **kwargs: Any) -> list[dict[str, Any]]:
-        self.calls.append(("list_workflow_runs", kwargs))
-        if self.error:
-            raise self.error
-        return self.runs[: kwargs.get("limit") or None]
-
-    async def list_run_jobs(self, run_id: int) -> list[dict[str, Any]]:
-        self.calls.append(("list_run_jobs", {"run_id": run_id}))
-        return self.jobs
-
-
-@pytest.fixture
-def runs(github_fixture) -> list[dict]:
-    return github_fixture("workflow_runs.json")["workflow_runs"]
-
-
-@pytest.fixture
-def jobs(github_fixture) -> list[dict]:
-    return github_fixture("run_jobs.json")["jobs"]
-
-
-@pytest.fixture
-def use_fake(app, client):
-    # `client` já rodou o lifespan; troca o GitHubClient criado lá pelo fake.
-    def install(fake: FakeGitHubClient) -> FakeGitHubClient:
-        app.state.github_client = fake
-        return fake
-
-    return install
-
-
-RATE_LIMIT = GitHubError(403, "API rate limit exceeded", rate_limited=True)
+from .fakes import RATE_LIMIT, FakeGitHubClient
 
 
 # ------------------------------------------------------------ /current
