@@ -25,8 +25,10 @@ api/
 │   ├── github/cache.py   ResponseCache: TTL + ETag (a entrada expirada guarda o ETag) e lock por chave
 │   ├── github/client.py  GitHubClient: métodos de leitura do GitHub com cache, 304 e erros
 │   ├── routes/health.py  GET /api/health
-│   ├── services/         (vazio, virá depois)
-│   └── schemas/common.py ApiModel (JSON em camelCase) + RunStatus
+│   ├── routes/pipeline.py GET /api/pipeline/current e /api/pipeline/history (cards 1 e 2)
+│   ├── services/pipeline.py funções puras: status normalizado, duração, stats
+│   ├── schemas/common.py ApiModel (JSON em camelCase) + RunStatus
+│   └── schemas/pipeline.py respostas dos cards 1 e 2
 ├── tests/                conftest.py, github/, routes/, schemas/, services/, fixtures/
 ├── Dockerfile
 └── .env.example
@@ -48,6 +50,31 @@ api/
 - Mapeamento de erros do GitHub (`GitHubError`): 401/403 de autenticação → **502**,
   rate limit (429, ou 403 com `rate_limited=True`) → **503**, 405 no merge → **409**,
   demais 5xx → 502, outros 4xx mantêm o status.
+
+### Rotas
+
+| Rota | Card | Resposta (camelCase) |
+|---|---|---|
+| `GET /api/health` | — | `{status, version}` |
+| `GET /api/pipeline/current` | 1. Status da main | `{run: {id, status, event, branch, headSha, commitMessage, actor, startedAt, durationSeconds, htmlUrl} \| null, jobs: [{name, status, durationSeconds, steps: [{name, status, number}]}]}` |
+| `GET /api/pipeline/history?limit=` | 2. Últimos runs | `{runs: [{id, status, event, branch, headSha, durationSeconds, createdAt}], stats: {total, successRate, avgDurationSeconds, deploys, byEvent}}` |
+
+- Fluxo: rota → `GitHubClient` → service **puro** (recebe os dicts crus e um `now`
+  em UTC; não faz requisição, não lê o relógio, não altera a entrada) → schema.
+- `current`: último run do workflow em **push na `main`** e os jobs dele; `run: null`
+  e `jobs: []` quando ainda não há runs.
+- `history`: últimos runs de todos os eventos e branches. `limit` de 1 a 100
+  (padrão `HISTORY_LIMIT`); fora disso → 422.
+- `status` ∈ `queued | in_progress | success | failure | cancelled | skipped`
+  (`status` + `conclusion` do GitHub; `skipped` aparece no job `deploy` quando o
+  `build-test` falha; conclusões desconhecidas contam como `failure`).
+- `durationSeconds`: do início até o fim quando concluído, até agora quando em
+  andamento, `null` na fila. `startedAt`/`createdAt` em ISO UTC.
+- Stats: `successRate` = sucessos / (sucessos + falhas), de 0 a 1 em 3 casas
+  (cancelados, skipped e não concluídos ficam fora; `null` sem nenhum);
+  `avgDurationSeconds` só de runs concluídos; `deploys` = push na `main` com
+  sucesso; `byEvent` = contagem por evento.
+- Erros do GitHub seguem o mapeamento abaixo (ex.: rate limit → 503).
 
 ### Variáveis de ambiente (`api/.env`)
 
@@ -87,6 +114,8 @@ npm run dev
 cd api && uv run pytest
 ```
 
+Os testes de pipeline usam JSON reais do GitHub em `tests/fixtures/github/`
+(reduzidos aos campos usados) e derivam as variações alterando campos.
 Os testes criam o app com `create_app(Settings(_env_file=None, ...))` e
 `TestClient`, então não dependem do seu `.env`.
 

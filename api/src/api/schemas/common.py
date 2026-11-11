@@ -29,3 +29,5 @@ class RunStatus(StrEnum):
     SUCCESS = "success"
     FAILURE = "failure"
     CANCELLED = "cancelled"
+    # Job que não rodou (ex.: deploy quando o build-test falha).
+    SKIPPED = "skipped"
