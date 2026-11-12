@@ -6,6 +6,7 @@ import PullsCard from './components/cards/PullsCard'
 import CommitsCard from './components/cards/CommitsCard'
 import VersionCard from './components/cards/VersionCard'
 import TeamCard from './components/cards/TeamCard'
+import { useVersionReload } from './hooks/useVersionReload'
 import './index.css'
 import './App.css'
 
@@ -13,9 +14,12 @@ import './App.css'
 //   │ 1. Status da main │ 3. PRs abertos │ 5. Versão      │
 //   │ 2. Últimos runs   │ 6. Commits     │ 4. Integrantes │
 function App() {
+  const { offline } = useVersionReload()
+
   return (
     <>
       <ParticlesBackground />
+      {offline && <div className="offline-banner">Reconectando…</div>}
       <main className="app">
         <Header />
         <div className="grid">
