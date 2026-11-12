@@ -13,8 +13,13 @@ function Header() {
   return (
     <header className="glass topbar" {...pointer}>
       <div className="brand">
-        <span className="brand-mark">A</span>
-        <div className="brand-text">
+        <img
+            src="/favicon.svg"
+            className="topbar__logo"
+            width={30}
+            height={30}
+            alt=""
+        />        <div className="brand-text">
           <span className="brand-name">ADEC</span>
           <span className="muted small">{data?.repository ?? 'painel de CI/CD'}</span>
         </div>
