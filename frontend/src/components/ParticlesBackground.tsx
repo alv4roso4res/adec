@@ -23,8 +23,6 @@ function getParticleColors(): string[] {
         styles.getPropertyValue('--color-particle-4').trim(),
     ]
 
-    console.log('Cores lidas do CSS:', colors)
-
     return colors
 }
 
