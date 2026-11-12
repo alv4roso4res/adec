@@ -591,21 +591,77 @@
 
 .legend {
   display: flex;
-  gap: 14px;
+  gap: 6px;
   font-size: 11px;
+}
+
+/* Botões da legenda: filtram o card entre gráfico e lista de runs. */
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.35s var(--spring);
+}
+
+.legend-item:hover {
+  color: var(--text-1);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.legend-item:focus-visible {
+  outline: 2px solid var(--tone-running);
+  outline-offset: 2px;
+}
+
+.legend-item.is-active {
+  color: var(--text-1);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.legend-count {
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
+  font-size: 10px;
+  text-align: center;
 }
 
 .legend .dot {
   display: inline-block;
   width: 8px;
   height: 8px;
-  margin-right: 4px;
   border-radius: 2px;
   border: 1px solid var(--text-2);
 }
 
 .legend .dot.is-push {
   background: var(--text-2);
+}
+
+/* Lista de runs filtrada (card 2): duração alinhada à direita. */
+.run .sha {
+  flex-shrink: 0;
+}
+
+.run-duration {
+  width: 52px;
+  flex-shrink: 0;
+  text-align: right;
 }
 
 /* ------------------------ listas (3, 4, 5, 6) ------------------------ */
@@ -618,6 +674,35 @@
   gap: 6px;
   min-height: 0;
   overflow: hidden;
+}
+
+/* Lista que rola sem mostrar a barra de rolagem (cards 2 e 6).
+   O padding evita que o "levantar" do hover das linhas seja cortado. */
+.list.scroll-hidden {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: -4px -4px 0;
+  padding: 4px 4px 2px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Edge antigo */
+  /* Esmaece o fim da lista para indicar que tem mais embaixo. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+}
+
+.list.scroll-hidden::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
+
+.list.scroll-hidden > .row {
+  flex-shrink: 0;
+}
+
+/* Tempo ("há 3 h") com largura fixa: os avatares à esquerda ficam alinhados. */
+.row-time {
+  width: 58px;
+  flex-shrink: 0;
+  text-align: right;
 }
 
 .row {

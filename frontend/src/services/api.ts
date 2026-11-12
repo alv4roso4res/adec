@@ -66,4 +66,4 @@ export const getTeam = (o?: Opts) => request<TeamMember[]>('/team', o)
 
 export const getVersion = (o?: Opts) => request<VersionInfo>('/version', o)
 
-export const getCommits = (o?: Opts) => request<CommitItem[]>('/commits?limit=6', o)
+export const getCommits = (o?: Opts) => request<CommitItem[]>('/commits?limit=20', o)
