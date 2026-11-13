@@ -5,6 +5,7 @@ import GlassCard from '../GlassCard'
 import StatusIcon from '../StatusIcon'
 
 // Card 6: últimos commits da main com o resultado do pipeline de cada um.
+// A lista rola para baixo (barra de rolagem escondida) para ver os mais antigos.
 function CommitsCard() {
   const poll = usePolling(getCommits, 15000)
 
@@ -14,7 +15,7 @@ function CommitsCard() {
         commits.length === 0 ? (
           <p className="empty">Nenhum commit.</p>
         ) : (
-          <ul className="list timeline">
+          <ul className="list timeline scroll-hidden">
             {commits.map((c) => (
               <li key={c.sha} className="row commit">
                 <StatusIcon status={c.pipelineStatus} size={18} />
@@ -27,7 +28,7 @@ function CommitsCard() {
                 {c.author.avatarUrl && (
                   <img className="avatar tiny" src={c.author.avatarUrl} alt="" title={c.author.login ?? c.author.name} />
                 )}
-                <span className="muted small nowrap">{timeAgo(c.committedAt, now)}</span>
+                <span className="muted small nowrap row-time">{timeAgo(c.committedAt, now)}</span>
               </li>
             ))}
           </ul>
