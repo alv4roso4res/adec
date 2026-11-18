@@ -10,12 +10,14 @@ const PATHS = {
   x: 'M7 7l10 10M17 7L7 17',
   clock: 'M12 8v4l2.5 2',
   minus: 'M7 12h10',
+  branch: 'M6 8v8M18 8v1a5 5 0 0 1-5 5H9a3 3 0 0 0-3 3',
   external: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
 } as const
 
 // Círculos extras de alguns ícones (cx, cy, r).
 const CIRCLES: Partial<Record<IconName, [number, number, number][]>> = {
   pull: [[6, 18, 2], [6, 6, 2], [18, 18, 2]],
+  branch: [[6, 6, 2], [6, 18, 2], [18, 6, 2]],
   users: [[9, 8, 3.5]],
   commit: [[12, 12, 3]],
   clock: [[12, 12, 8]],

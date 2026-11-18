@@ -23,6 +23,8 @@ class FakeGitHubClient:
         reviews: dict[int, list[dict[str, Any]]] | None = None,
         user: dict[str, Any] | None = None,
         merge_result: dict[str, Any] | None = None,
+        branches: list[dict[str, Any]] | None = None,
+        comparisons: dict[str, dict[str, Any] | GitHubError] | None = None,
         error: GitHubError | None = None,
         package_errors: dict[str, GitHubError] | None = None,
     ) -> None:
@@ -38,6 +40,9 @@ class FakeGitHubClient:
         self.reviews = reviews or {}
         self.user = user or {"login": "dono-do-token"}
         self.merge_result = merge_result or {"sha": "abc1234def5678", "merged": True}
+        self.branches = branches or []
+        # Indexado pelo nome da branch; um GitHubError simula falha no compare.
+        self.comparisons = comparisons or {}
         self.error = error
         # Erro só na leitura de uma imagem (ex.: 404 de pacote não publicado).
         self.package_errors = package_errors or {}
@@ -69,6 +74,17 @@ class FakeGitHubClient:
     async def list_pulls(self, **kwargs: Any) -> list[dict[str, Any]]:
         self._record("list_pulls", kwargs)
         return self.pulls
+
+    async def list_branches(self) -> list[dict[str, Any]]:
+        self._record("list_branches", {})
+        return self.branches
+
+    async def compare(self, base: str, head: str) -> dict[str, Any]:
+        self._record("compare", {"base": base, "head": head})
+        result = self.comparisons.get(head, {"commits": []})
+        if isinstance(result, GitHubError):
+            raise result
+        return result
 
     async def list_contributors(self) -> list[dict[str, Any]]:
         self._record("list_contributors", {})

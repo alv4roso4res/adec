@@ -8,7 +8,7 @@ from api.config import Settings, get_settings
 from api.errors import register_error_handlers
 from api.github.cache import ResponseCache
 from api.github.client import GitHubClient
-from api.routes import commits, health, pipeline, pulls, team, version
+from api.routes import branches, commits, health, pipeline, pulls, team, version
 
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_API_VERSION = "2022-11-28"
@@ -62,6 +62,10 @@ OPENAPI_TAGS = [
     {
         "name": "pulls",
         "description": "Card 3: PRs abertos, badges de estado, aprovar e mergear.",
+    },
+    {
+        "name": "branches",
+        "description": "Card 7: mapa de branches (main e as linhas que saem dela).",
     },
 ]
 
@@ -117,6 +121,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(version.router, prefix="/api")
     app.include_router(team.router, prefix="/api")
     app.include_router(pulls.router, prefix="/api")
+    app.include_router(branches.router, prefix="/api")
 
     return app
 
