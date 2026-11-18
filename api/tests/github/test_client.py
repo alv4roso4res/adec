@@ -319,6 +319,20 @@ async def test_list_pulls_and_commits_query_params(github, mock):
     }
 
 
+async def test_list_branches_and_compare(github, mock):
+    branches = mock.get(f"{REPO}/branches").respond(200, json=[{"name": "main"}])
+    # Barra do nome da branch vai crua no caminho, como o GitHub espera.
+    compare = mock.get(f"{REPO}/compare/main...feat/mapa").respond(
+        200, json={"ahead_by": 2}
+    )
+
+    assert await github.list_branches() == [{"name": "main"}]
+    assert await github.compare("main", "feat/mapa") == {"ahead_by": 2}
+
+    assert dict(branches.calls.last.request.url.params) == {"per_page": "100"}
+    assert dict(compare.calls.last.request.url.params) == {"per_page": "100"}
+
+
 # ---------------------------------------------------------------- escrita
 
 

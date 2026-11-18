@@ -6,7 +6,7 @@ cache, e invalida o cache de PRs depois de cada sucesso.
 """
 
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import httpx
 
@@ -22,6 +22,10 @@ TTL_COMMITS = 15
 TTL_PACKAGES = 30
 TTL_CONTRIBUTORS = 60
 TTL_USER = 3600  # usuário dono do token
+
+# Máximo do GitHub por página: cobre as branches de um trabalho de semestre.
+BRANCHES_PER_PAGE = 100
+COMPARE_PER_PAGE = 100
 
 UNREACHABLE_MESSAGE = "Não foi possível falar com o GitHub"
 
@@ -176,6 +180,24 @@ class GitHubClient:
         return await self._get(
             f"{self._repo}/commits",
             {"sha": branch, "per_page": limit or self.settings.history_limit},
+            ttl=TTL_COMMITS,
+        )
+
+    async def list_branches(self) -> list[dict[str, Any]]:
+        """Branches que existem hoje no repositório (nome + SHA da ponta)."""
+        return await self._get(
+            f"{self._repo}/branches", {"per_page": BRANCHES_PER_PAGE}, ttl=TTL_COMMITS
+        )
+
+    async def compare(self, base: str, head: str) -> dict[str, Any]:
+        """Compara `base...head`: ahead/behind, merge base e commits da head.
+
+        Nomes de branch podem ter "/" (feat/x): só os outros caracteres são
+        escapados, como o GitHub espera no caminho.
+        """
+        return await self._get(
+            f"{self._repo}/compare/{quote(base, safe='/')}...{quote(head, safe='/')}",
+            {"per_page": COMPARE_PER_PAGE},
             ttl=TTL_COMMITS,
         )
 
