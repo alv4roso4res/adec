@@ -1,4 +1,3 @@
-import { useGlassPointer } from '../hooks/useGlassPointer'
 import { useNow } from '../hooks/useNow'
 import { usePolling } from '../hooks/usePolling'
 import { getHealth } from '../services/api'
@@ -8,10 +7,9 @@ function Header() {
   const now = useNow(1000)
   const { data, error } = usePolling(getHealth, 30000)
   const online = data !== undefined && !error
-  const pointer = useGlassPointer()
 
   return (
-    <header className="glass topbar" {...pointer}>
+    <header className="glass topbar">
       <div className="brand">
         <img
             src="/favicon.svg"

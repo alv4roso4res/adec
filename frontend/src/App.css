@@ -47,18 +47,13 @@
 /* ===================== vidro líquido (Liquid Glass) =====================
  * Três camadas empilhadas no mesmo elemento:
  *   1. o próprio .glass   -> o "corpo" do vidro: desfoca e satura o que está atrás;
- *   2. ::before           -> o brilho especular, que segue o mouse;
- *   3. ::after            -> a borda (aro) de luz, mais forte perto do mouse.
+ *   2. ::before           -> o brilho especular (reflexo fixo no topo);
+ *   3. ::after            -> a borda (aro) de luz.
  * O conteúdo fica por cima de tudo (z-index 2).
- * --mx/--my (posição do mouse) e --rx/--ry (inclinação) vêm do useGlassPointer.
+ * --shine (0 a 1) acende o vidro quando o mouse está em cima: só clareia,
+ * sem mover, crescer ou inclinar o card.
  */
 .glass {
-  --mx: 30%;
-  --my: 0%;
-  --rx: 0deg;
-  --ry: 0deg;
-  --lift: 0px;
-  --scale: 1;
   --shine: 0;
 
   position: relative;
@@ -80,15 +75,10 @@
     0 20px 50px rgba(0, 0, 0, 0.40),
     0 2px 6px rgba(0, 0, 0, 0.25);
   overflow: hidden;
-  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(var(--lift))
-    scale(var(--scale));
-  transform-style: preserve-3d;
-  /* curva "mola" no transform: passa um pouquinho do ponto e volta, como no iOS.
-     --shine também anima (ver @property abaixo), então o brilho acende suave. */
+  /* --shine anima (ver @property abaixo), então o brilho acende suave. */
   transition:
-    transform 0.6s cubic-bezier(0.22, 1.4, 0.36, 1),
-    box-shadow 0.5s ease,
-    --shine 0.45s ease;
+    box-shadow 0.4s ease,
+    --shine 0.35s ease;
 }
 
 .glass > * {
@@ -96,7 +86,7 @@
   z-index: 2;
 }
 
-/* 2. Brilho especular: um "holofote" suave onde o mouse está + reflexo fixo no topo. */
+/* 2. Brilho especular: reflexo fixo no topo + véu claro que aparece no hover. */
 .glass::before {
   content: '';
   position: absolute;
@@ -105,7 +95,7 @@
   border-radius: inherit;
   pointer-events: none;
   background:
-    radial-gradient(420px circle at var(--mx) var(--my), rgba(255, 255, 255, calc(0.16 * var(--shine))), transparent 45%),
+    linear-gradient(rgba(255, 255, 255, calc(0.045 * var(--shine))) 0 0),
     radial-gradient(130% 70% at 0% 0%, rgba(255, 255, 255, 0.11), transparent 50%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 30%);
   transition: opacity 0.4s ease;
@@ -121,7 +111,7 @@
   border-radius: inherit;
   pointer-events: none;
   background:
-    radial-gradient(260px circle at var(--mx) var(--my), rgba(255, 255, 255, calc(0.85 * var(--shine))), transparent 60%),
+    linear-gradient(rgba(255, 255, 255, calc(0.18 * var(--shine))) 0 0),
     linear-gradient(160deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.08) 40%, rgba(255, 255, 255, 0.04) 60%, rgba(255, 255, 255, 0.22));
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
@@ -132,11 +122,9 @@
     linear-gradient(#000 0 0);
 }
 
-/* Hover: o card "sobe", cresce um tiquinho, inclina seguindo o mouse e acende. */
+/* Hover: o card só fica um pouco mais claro (vidro e borda acendem). */
 .glass.interactive:hover,
 .topbar.glass:hover {
-  --lift: -4px;
-  --scale: 1.012;
   --shine: 1;
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.45),
@@ -145,17 +133,6 @@
     0 30px 70px rgba(0, 0, 0, 0.50),
     0 0 0 1px rgba(255, 255, 255, 0.04),
     0 0 40px rgba(120, 160, 255, 0.10);
-}
-
-/* O cabeçalho é largo: só acende e sobe, sem inclinar. */
-.topbar.glass {
-  --rx: 0deg !important;
-  --ry: 0deg !important;
-}
-
-.topbar.glass:hover {
-  --lift: -2px;
-  --scale: 1;
 }
 
 /* Registrar --shine como número deixa o navegador animá-la (0 -> 1);
@@ -253,10 +230,12 @@
   min-height: 0;
   display: grid;
   grid-template-columns: 1.15fr 1.3fr 1fr;
-  grid-template-rows: 1fr 1fr;
+  /* Tudo numa tela: as duas linhas de cima dividem o espaço que o mapa deixa. */
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
   grid-template-areas:
     'pipeline pulls   version'
-    'history  commits team';
+    'history  commits team'
+    'map      map     map';
   gap: 16px;
 }
 
@@ -266,6 +245,7 @@
 .area-commits { grid-area: commits; }
 .area-version { grid-area: version; }
 .area-team { grid-area: team; }
+.area-map { grid-area: map; }
 
 /* ------------------------------ card ------------------------------ */
 .card {
@@ -793,6 +773,121 @@ a.row-title:hover {
   font-size: 20px;
 }
 
+/* ------------------- versão compacta (uma tela só) ------------------- */
+/* Os 7 cards precisam caber juntos em 1366×768: espaçamentos e fontes menores. */
+.app {
+  gap: 10px;
+  padding: 12px 16px 14px;
+}
+
+.grid {
+  gap: 10px;
+}
+
+.topbar {
+  padding: 6px 12px 6px 10px;
+  border-radius: 18px;
+}
+
+.card {
+  padding: 10px 14px 10px;
+}
+
+.card-header {
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.card-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+}
+
+.card-title {
+  font-size: 13px;
+}
+
+.card-body {
+  gap: 8px;
+}
+
+.hero {
+  gap: 10px;
+}
+
+.hero-label {
+  font-size: 20px;
+}
+
+.hero-timer {
+  font-size: 18px;
+}
+
+.area-version .hero-label {
+  font-size: 17px;
+}
+
+.commit-line {
+  font-size: 12px;
+}
+
+.jobs {
+  gap: 6px;
+}
+
+.job {
+  padding: 6px 10px;
+  border-radius: 12px;
+}
+
+.job-head {
+  font-size: 12px;
+}
+
+.steps {
+  margin-top: 6px;
+}
+
+.step {
+  height: 4px;
+}
+
+.stats {
+  gap: 6px;
+}
+
+.stat {
+  padding: 5px 9px;
+  border-radius: 11px;
+  font-size: 10.5px;
+}
+
+.stat-value {
+  font-size: 16px;
+}
+
+.list {
+  gap: 4px;
+}
+
+.row {
+  gap: 8px;
+  padding: 5px 9px;
+  border-radius: 11px;
+  font-size: 12.5px;
+}
+
+.avatar {
+  width: 26px;
+  height: 26px;
+}
+
+.avatar.tiny {
+  width: 18px;
+  height: 18px;
+}
+
 /* ---------------- telas menores que o projetor ---------------- */
 /* O alvo é 1366×768 sem rolagem; abaixo disso a grade se reorganiza e rola. */
 @media (max-width: 1100px) {
@@ -810,11 +905,12 @@ a.row-title:hover {
   .grid {
     flex: none;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: repeat(3, 340px);
+    grid-template-rows: repeat(3, 340px) auto;
     grid-template-areas:
       'pipeline pulls'
       'history  commits'
-      'version  team';
+      'version  team'
+      'map      map';
   }
 }
 
@@ -825,8 +921,8 @@ a.row-title:hover {
 
   .grid {
     grid-template-columns: 1fr;
-    grid-template-rows: repeat(6, 320px);
-    grid-template-areas: 'pipeline' 'pulls' 'version' 'history' 'commits' 'team';
+    grid-template-rows: repeat(6, 320px) auto;
+    grid-template-areas: 'pipeline' 'pulls' 'version' 'history' 'commits' 'team' 'map';
   }
 
   .clock {
@@ -949,17 +1045,319 @@ a.row-title:hover {
 .grid > .card:nth-child(4) { animation-delay: 0.32s; }
 .grid > .card:nth-child(5) { animation-delay: 0.40s; }
 .grid > .card:nth-child(6) { animation-delay: 0.48s; }
+.grid > .card:nth-child(7) { animation-delay: 0.56s; }
 
-/* Acessibilidade: quem pede menos movimento no sistema não vê inclinação nem entrada. */
+/* --------------------- card 7: mapa de branches --------------------- */
+/* O mapa tem altura própria (não encolhe); os cards de cima dividem o resto. */
+.area-map .card-body {
+  flex: none;
+  overflow: visible;
+}
+
+.metro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Moldura do mapa: fundo pontilhado (papel de mapa) e setas nas bordas. */
+.metro-viewport {
+  position: relative;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1.2px) 0 0 / 18px 18px,
+    linear-gradient(180deg, rgba(10, 14, 26, 0.55), rgba(10, 14, 26, 0.35));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+/* Esmaece a borda do lado em que ainda tem mapa escondido. */
+.metro-viewport::before,
+.metro-viewport::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 56px;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.metro-viewport::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(12, 16, 28, 0.95), transparent);
+}
+
+.metro-viewport::after {
+  right: 0;
+  background: linear-gradient(-90deg, rgba(12, 16, 28, 0.95), transparent);
+}
+
+.metro-viewport.more-left::before,
+.metro-viewport.more-right::after {
+  opacity: 1;
+}
+
+/* Rolagem lateral pela rodinha do mouse (ou arrastando), sem barra visível. */
+.metro-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  cursor: grab;
+  scrollbar-width: none;
+}
+
+.metro-scroll.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.metro-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.metro-svg {
+  display: block;
+}
+
+/* Linha do tempo: guias tracejadas e datas na base. */
+.metro-day line {
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-dasharray: 2 5;
+}
+
+.metro-day text {
+  fill: var(--text-3);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+
+.metro-line,
+.metro-casing,
+.metro-hit,
+.metro-glow {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Contorno escuro por baixo da linha: separa as linhas nos cruzamentos. */
+.metro-casing {
+  stroke: #0b101d;
+  stroke-width: 11;
+}
+
+.metro-casing.is-main {
+  stroke-width: 13;
+}
+
+/* Linha colorida; "desenha" da esquerda para a direita ao carregar. */
+.metro-line {
+  stroke: var(--c);
+  stroke-width: 6;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: metro-draw 1.2s cubic-bezier(0.65, 0, 0.35, 1) var(--d) forwards;
+  transition: stroke-width 0.25s ease, filter 0.25s ease;
+}
+
+.metro-line.is-main {
+  stroke-width: 8;
+}
+
+.metro-glow {
+  stroke: #0a84ff;
+  stroke-width: 14;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.metro-hit {
+  stroke: transparent;
+  stroke-width: 22;
+}
+
+@keyframes metro-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Estações: miolo claro com anel na cor da linha (padrão de mapa de metrô). */
+.metro-station {
+  stroke: var(--c);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: metro-pop 0.45s var(--spring) calc(var(--d) + 0.75s) forwards;
+  transition: transform 0.35s var(--spring), fill 0.2s ease;
+  cursor: pointer;
+}
+
+.metro-station.is-branch {
+  fill: #f4f7ff;
+  stroke-width: 3;
+}
+
+/* Parada simples na main: pontinho branco dentro da linha. */
+.metro-station.is-stop {
+  fill: #fff;
+  stroke: none;
+}
+
+/* Merge = estação de integração: branca, maior, com contorno escuro e anel azul. */
+.metro-station.is-interchange {
+  fill: #fff;
+  stroke: #0b101d;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 0.5px var(--c)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.metro-station.is-empty {
+  fill: #121826;
+  stroke-width: 2.5;
+  stroke-dasharray: 3 3;
+}
+
+.metro-station:hover {
+  transform: scale(1.4);
+}
+
+@keyframes metro-pop {
+  from { opacity: 0; transform: scale(0.3); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Último commit da main e ponta das branches abertas: anel pulsando ("ao vivo"). */
+.metro-head-ring {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: metro-ring 2s ease-out 1.6s infinite;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.metro-branch.is-open > a:last-of-type .metro-station {
+  opacity: 1;
+  animation: metro-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes metro-ring {
+  0% { opacity: 0.9; transform: scale(0.7); }
+  100% { opacity: 0; transform: scale(1.9); }
+}
+
+@keyframes metro-pulse {
+  50% { filter: drop-shadow(0 0 7px var(--c)); }
+}
+
+/* Plaquinha "#PR" na cor da linha. */
+.metro-badge rect {
+  fill: var(--c);
+  stroke: #0b101d;
+  stroke-width: 2;
+}
+
+.metro-badge text {
+  fill: #0b101d;
+  font-size: 10.5px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* Plaquinha com o nome (main e branches abertas), com setinha apontando. */
+.metro-tag path {
+  fill: var(--c);
+}
+
+.metro-tag rect {
+  fill: color-mix(in srgb, var(--c) 24%, #0e1422);
+  stroke: var(--c);
+  stroke-width: 1.4;
+}
+
+.metro-tag text {
+  fill: var(--text-1);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* Foco numa linha: ela engrossa e brilha; as outras apagam. */
+.metro-branch,
+.metro-main {
+  cursor: pointer;
+  transition: opacity 0.25s ease;
+}
+
+.metro-scroll.is-dragging .metro-branch,
+.metro-scroll.is-dragging .metro-station {
+  cursor: grabbing;
+}
+
+.metro-branch:hover .metro-line,
+.metro-branch:focus-visible .metro-line {
+  stroke-width: 8;
+  filter: drop-shadow(0 0 8px var(--c));
+}
+
+.metro-main:hover .metro-line {
+  stroke-width: 10;
+  filter: drop-shadow(0 0 8px var(--c));
+}
+
+.metro-branch:focus-visible {
+  outline: none;
+}
+
+.is-dim {
+  opacity: 0.2;
+}
+
+.metro-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 28px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.metro-dot {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.metro-info-name {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.metro-info-msg {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* Acessibilidade: quem pede menos movimento no sistema não vê as animações de entrada. */
 @media (prefers-reduced-motion: reduce) {
-  .glass,
-  .glass.interactive:hover {
-    --rx: 0deg !important;
-    --ry: 0deg !important;
-    --lift: 0px;
-    --scale: 1;
-  }
-
   .topbar,
   .grid > .card {
     animation: none;
@@ -970,6 +1368,18 @@ a.row-title:hover {
   .stat:hover,
   .bars .bar:hover {
     transform: none;
+  }
+
+  .metro-line,
+  .metro-station,
+  .metro-branch.is-open > a:last-of-type .metro-station {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+
+  .metro-head-ring {
+    animation: none;
   }
 }
 

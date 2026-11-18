@@ -131,3 +131,34 @@ export interface CommitItem {
   htmlUrl: string
   pipelineStatus: RunStatus | null
 }
+
+// GET /api/branches (card 7: mapa de branches)
+export type BranchState = 'merged' | 'open'
+
+export interface MapCommit {
+  sha: string
+  shortSha: string
+  message: string
+  author: { login: string | null; name: string; avatarUrl: string | null }
+  committedAt: string
+  htmlUrl: string
+}
+
+export interface BranchLine {
+  name: string
+  state: BranchState
+  prNumber: number | null
+  htmlUrl: string
+  forkSha: string | null
+  mergeSha: string | null
+  aheadBy: number
+  behindBy: number
+  author: MapCommit['author'] | null
+  commits: MapCommit[]
+}
+
+export interface BranchMap {
+  defaultBranch: string
+  mainline: MapCommit[]
+  branches: BranchLine[]
+}

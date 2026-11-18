@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { useGlassPointer } from '../hooks/useGlassPointer'
 import { useNow } from '../hooks/useNow'
 import type { PollState } from '../hooks/usePolling'
 import { friendlyError } from '../utils/format'
@@ -22,10 +21,9 @@ function GlassCard<T>({ title, icon, poll, className = '', children }: GlassCard
   const now = useNow(1000)
   const { data, error, updatedAt } = poll
   const seconds = updatedAt ? Math.max(0, Math.round((now - updatedAt) / 1000)) : null
-  const pointer = useGlassPointer()
 
   return (
-    <section className={`glass card interactive ${className}`} {...pointer}>
+    <section className={`glass card interactive ${className}`}>
       <header className="card-header">
         <span className="card-icon">
           <Icon name={icon} size={16} />
