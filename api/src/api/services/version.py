@@ -1,4 +1,4 @@
-"""Monta o card 5: versão rodando × `latest` no GHCR × último commit da main.
+"""Monta o card 5: versão rodando × última imagem no GHCR × último commit da main.
 
 Função pura: recebe os dicts crus do GitHub (commits da main, runs e versões
 de pacote de cada imagem) e a versão em execução; não faz requisição e nunca
@@ -17,7 +17,6 @@ from api.services.pipeline import normalize_status
 Raw = Mapping[str, Any]
 
 SHA_TAG_PREFIX = "sha-"
-LATEST_TAG = "latest"
 # Menor prefixo aceito na comparação (o pipeline usa 7 caracteres).
 MIN_SHA_LENGTH = 7
 _SHA_RE = re.compile(rf"[0-9a-f]{{{MIN_SHA_LENGTH},40}}")
@@ -39,13 +38,23 @@ def same_sha(a: str | None, b: str | None) -> bool:
 
 
 def published_sha(versions: Sequence[Raw]) -> str | None:
-    """SHA da tag `sha-xxxxxxx` que divide a versão de pacote com a `latest`."""
+    """SHA da versão de pacote mais recente que tem uma tag `sha-xxxxxxx`.
+
+    O pipeline publica só tags imutáveis (sem `latest`), então "publicada" é a
+    imagem mais nova. Versões sem tag (camadas/atestados do build) são
+    ignoradas. Ordena por `created_at`; no empate, vale a ordem do GHCR (que
+    já devolve a mais nova primeiro).
+    """
+    best: tuple[str, str] | None = None
     for version in versions:
         tags = (version.get("metadata") or {}).get("container", {}).get("tags") or []
-        if LATEST_TAG in tags:
-            sha_tags = [t for t in tags if t.startswith(SHA_TAG_PREFIX)]
-            return sha_tags[0][len(SHA_TAG_PREFIX) :] if sha_tags else None
-    return None
+        sha_tags = [t for t in tags if t.startswith(SHA_TAG_PREFIX)]
+        if not sha_tags:
+            continue
+        created = version.get("created_at") or ""
+        if best is None or created > best[0]:
+            best = (created, sha_tags[0][len(SHA_TAG_PREFIX) :])
+    return best[1] if best else None
 
 
 def build_version(
@@ -95,6 +104,6 @@ def _state(
         if status in _FAILED:
             return VersionState.PIPELINE_FAILED
     # Run na fila/rodando, ainda não criado (merge de segundos atrás), ou
-    # concluído com o GHCR/cache ainda mostrando a latest anterior — inclusive
-    # imagens divergentes no meio da promoção (uma latest já movida, a outra não).
+    # concluído com o GHCR/cache ainda mostrando a imagem anterior — inclusive
+    # imagens divergentes no meio do deploy (uma já publicada, a outra não).
     return VersionState.BUILDING

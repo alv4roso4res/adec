@@ -34,7 +34,7 @@ async def _package_versions(github: GitHubClient, image: str) -> list[dict[str, 
     summary="Versão rodando × publicada × main",
     description=(
         "**Card 5 (versão publicada vs. main).** Compara a versão em execução "
-        "(APP_VERSION), a tag `latest` de cada imagem no GHCR (GHCR_IMAGES) e o "
+        "(APP_VERSION), a tag `sha-` mais recente de cada imagem no GHCR (GHCR_IMAGES) e o "
         "último commit da `main`, e resume em `state`: `up_to_date`, "
         "`restart_pending`, `building`, `pipeline_failed` ou `dev`. SHAs são "
         "comparados por prefixo.\n\n"

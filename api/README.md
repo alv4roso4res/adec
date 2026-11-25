@@ -32,7 +32,7 @@ api/
 │   ├── routes/pulls.py   GET /api/pulls + POST /api/pulls/{number}/approve e /merge (card 3)
 │   ├── services/pipeline.py funções puras: status normalizado, duração, stats
 │   ├── services/commits.py função pura: commits × runs (status do pipeline por SHA)
-│   ├── services/version.py função pura: running × latest no GHCR × main → state
+│   ├── services/version.py função pura: running × imagem mais nova no GHCR × main → state
 │   ├── services/team.py  função pura: TEAM_LOGINS × PRs × contribuidores
 │   ├── services/pulls.py função pura: PRs × detalhes × checks × reviews → badge, canApprove
 │   ├── schemas/common.py ApiModel (JSON em camelCase) + RunStatus
@@ -115,20 +115,20 @@ docstring. O `tests/test_openapi.py` reprova o que faltar e diz qual rota/campo.
   Os runs vêm da **mesma chamada** do card 2 (`fetch_history_runs`, sem `limit`),
   então caem na mesma chave do cache: o cruzamento não gasta requisição extra.
 - `version`: `running` = `APP_VERSION`; `mainSha` = último commit da `main`;
-  `publishedSha` de cada imagem de `GHCR_IMAGES` = a tag `sha-xxxxxxx` que está na
-  mesma versão de pacote que a `latest` (`null` se não há `latest` ou o pacote ainda
-  não existe — 404 não derruba o card). SHAs são comparados **por prefixo** (mínimo 7
+  `publishedSha` de cada imagem de `GHCR_IMAGES` = a tag `sha-xxxxxxx` da versão de
+  pacote mais recente (`created_at`); o pipeline não publica `latest` (`null` se
+  nenhuma versão tem tag `sha-` ou o pacote ainda não existe — 404 não derruba o card). SHAs são comparados **por prefixo** (mínimo 7
   caracteres). `state`, avaliado nesta ordem:
 
   | `state` | Quando |
   |---|---|
   | `dev` | `APP_VERSION` não é um SHA (ex.: `dev`, fora do Docker) |
-  | `up_to_date` | a `latest` de **todas** as imagens e a versão rodando são a main |
-  | `restart_pending` | a `latest` de todas as imagens já é a main, mas a produção roda outra versão |
-  | `pipeline_failed` | a `latest` não é a main e o último run de **push** da main falhou/foi cancelado |
-  | `building` | qualquer outro caso: run da main na fila/rodando/ainda não criado, ou concluído com o GHCR ainda mostrando a `latest` anterior, ou imagens divergentes no meio da promoção |
+  | `up_to_date` | a imagem mais nova de **todas** as imagens e a versão rodando são a main |
+  | `restart_pending` | a imagem mais nova de todas as imagens já é a main, mas a produção roda outra versão |
+  | `pipeline_failed` | a imagem mais nova não é a main e o último run de **push** da main falhou/foi cancelado |
+  | `building` | qualquer outro caso: run da main na fila/rodando/ainda não criado, ou concluído com o GHCR ainda mostrando a imagem anterior, ou imagens divergentes no meio do deploy |
 
-  Imagens com `latest` divergente (API movida, frontend não) nunca contam como
+  Imagens divergentes (API já publicada, frontend ainda não) nunca contam como
   publicadas. Commits e runs vêm das **mesmas chamadas** dos cards 6 e 2
   (`fetch_main_commits` e `fetch_history_runs`), então só os pacotes geram
   requisição nova. **Exige token com `read:packages`**: sem ele o GitHub responde

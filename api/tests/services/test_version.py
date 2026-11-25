@@ -5,7 +5,7 @@ import pytest
 from api.schemas.version import VersionState
 from api.services.version import build_version, published_sha, same_sha
 
-# Fixtures reais: a main (commits.json) e a `latest` das duas imagens
+# Fixtures reais: a main (commits.json) e a imagem mais nova das duas
 # (package_versions_*.json) estão em e8eb3e0. O merge seguinte, 092ded1, é
 # usado para simular "main andou e o pipeline ainda não publicou".
 MAIN = "e8eb3e0aa85bb8e7c0af9c52ae69197d024e941c"
@@ -39,15 +39,14 @@ def push_run(sha: str, status: str, conclusion: str | None = None, **extra) -> d
     } | extra
 
 
-def promote(versions: list[dict], short_sha: str) -> list[dict]:
-    """Simula o passo "Promover latest": nova versão sha-xxx + latest."""
-    moved = copy.deepcopy(versions)
-    for version in moved:
-        tags = version["metadata"]["container"]["tags"]
-        if "latest" in tags:
-            tags.remove("latest")
-    new = {"id": 1, "metadata": {"container": {"tags": [f"sha-{short_sha}", "latest"]}}}
-    return [new, *moved]
+def publish(versions: list[dict], short_sha: str) -> list[dict]:
+    """Simula o deploy: o GHCR ganha uma versão nova com só a tag sha-xxx."""
+    new = {
+        "id": 1,
+        "created_at": "2026-11-11T02:30:00Z",
+        "metadata": {"container": {"tags": [f"sha-{short_sha}"]}},
+    }
+    return [new, *copy.deepcopy(versions)]
 
 
 # --------------------------------------------------------------- same_sha
@@ -80,19 +79,31 @@ def test_published_sha_from_real_fixture(packages):
     assert published_sha(packages["adec-frontend"]) == "e8eb3e0"
 
 
-def test_published_sha_without_latest_is_none(packages):
-    without_latest = [
-        v for v in packages["adec-api"] if "latest" not in v["metadata"]["container"]["tags"]
+def test_published_sha_is_the_newest_sha_tag(packages):
+    # Sem a versão mais nova (e8eb3e0), vale a anterior com tag sha-.
+    older = packages["adec-api"][1:]
+
+    assert published_sha(older) == OLD
+    assert published_sha(publish(packages["adec-api"], "092ded1")) == "092ded1"
+
+
+def test_published_sha_uses_created_at_not_list_order():
+    versions = [
+        {"created_at": "2026-11-10T10:00:00Z", "metadata": {"container": {"tags": ["sha-aaaaaaa"]}}},
+        {"created_at": "2026-11-11T10:00:00Z", "metadata": {"container": {"tags": ["sha-bbbbbbb"]}}},
     ]
 
-    assert published_sha(without_latest) is None
-    assert published_sha([]) is None
+    assert published_sha(versions) == "bbbbbbb"
 
 
-def test_published_sha_latest_without_sha_tag_is_none():
-    versions = [{"metadata": {"container": {"tags": ["latest"]}}}]
+def test_published_sha_ignores_versions_without_sha_tag():
+    versions = [
+        {"created_at": "2026-11-11T10:00:00Z", "metadata": {"container": {"tags": ["latest"]}}},
+        {"created_at": "2026-11-11T10:00:00Z", "metadata": {"container": {"tags": []}}},
+    ]
 
     assert published_sha(versions) is None
+    assert published_sha([]) is None
 
 
 # ---------------------------------------------------------- os 5 estados
@@ -122,7 +133,7 @@ def test_state_up_to_date(running, commits, packages):
 
 
 def test_state_restart_pending(commits, packages):
-    # latest já é a main, mas o container ainda roda a versão anterior.
+    # A imagem mais nova já é a main, mas o container ainda roda a anterior.
     info = build_version(OLD, commits, [], packages)
 
     assert info.state is VersionState.RESTART_PENDING
@@ -145,8 +156,8 @@ def test_state_building_when_run_not_created_yet(commits, packages):
     assert info.state is VersionState.BUILDING
 
 
-def test_state_building_when_run_succeeded_but_latest_still_old(commits, packages):
-    # Run acabou, mas o GHCR (cache de 30 s) ainda mostra a latest anterior.
+def test_state_building_when_run_succeeded_but_image_still_old(commits, packages):
+    # Run acabou, mas o GHCR (cache de 30 s) ainda mostra a imagem anterior.
     runs = [push_run(NEW_MAIN, "completed", "success")]
 
     info = build_version("e8eb3e0", new_main(commits), runs, packages)
@@ -187,9 +198,9 @@ def test_latest_push_run_wins_on_rerun(commits, packages):
 # ------------------------------------------ imagens divergentes (API × front)
 
 
-def test_divergent_images_mid_promotion_is_building(commits, packages):
-    # "Promover latest" é sequencial: a API já foi movida, o frontend ainda não.
-    diverged = packages | {"adec-api": promote(packages["adec-api"], "092ded1")}
+def test_divergent_images_mid_deploy_is_building(commits, packages):
+    # O deploy publica uma imagem por vez: a API já saiu, o frontend ainda não.
+    diverged = packages | {"adec-api": publish(packages["adec-api"], "092ded1")}
     runs = [push_run(NEW_MAIN, "in_progress")]
 
     info = build_version("e8eb3e0", new_main(commits), runs, diverged)
@@ -202,8 +213,8 @@ def test_divergent_images_mid_promotion_is_building(commits, packages):
 
 
 def test_divergent_images_never_count_as_published(commits, packages):
-    # Mesmo rodando a main, só uma latest movida não é up_to_date nem restart.
-    diverged = packages | {"adec-api": promote(packages["adec-api"], "092ded1")}
+    # Mesmo rodando a main, só uma imagem publicada não é up_to_date nem restart.
+    diverged = packages | {"adec-api": publish(packages["adec-api"], "092ded1")}
     runs = [push_run(NEW_MAIN, "completed", "success")]
 
     for running in ("092ded1", "e8eb3e0"):
@@ -211,9 +222,9 @@ def test_divergent_images_never_count_as_published(commits, packages):
         assert info.state is VersionState.BUILDING
 
 
-def test_divergent_images_after_failed_promotion(commits, packages):
-    # A segunda promoção falhou: o run fica vermelho e as latest divergem.
-    diverged = packages | {"adec-api": promote(packages["adec-api"], "092ded1")}
+def test_divergent_images_after_failed_deploy(commits, packages):
+    # A segunda publicação falhou: o run fica vermelho e as imagens divergem.
+    diverged = packages | {"adec-api": publish(packages["adec-api"], "092ded1")}
     runs = [push_run(NEW_MAIN, "completed", "failure")]
 
     info = build_version("e8eb3e0", new_main(commits), runs, diverged)
@@ -221,16 +232,16 @@ def test_divergent_images_after_failed_promotion(commits, packages):
     assert info.state is VersionState.PIPELINE_FAILED
 
 
-def test_both_images_promoted_is_restart_pending(commits, packages):
-    promoted = {img: promote(packages[img], "092ded1") for img in IMAGES}
+def test_both_images_published_is_restart_pending(commits, packages):
+    published = {img: publish(packages[img], "092ded1") for img in IMAGES}
     runs = [push_run(NEW_MAIN, "completed", "success")]
 
     assert (
-        build_version("e8eb3e0", new_main(commits), runs, promoted).state
+        build_version("e8eb3e0", new_main(commits), runs, published).state
         is VersionState.RESTART_PENDING
     )
     assert (
-        build_version("092ded1", new_main(commits), runs, promoted).state
+        build_version("092ded1", new_main(commits), runs, published).state
         is VersionState.UP_TO_DATE
     )
 
