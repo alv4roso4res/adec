@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Validações locais equivalentes às etapas de código do job build-test.
-# Use --docker para construir imagens de validação sem alterar a latest.
+# Use --docker para construir também as imagens (tag local check-local).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

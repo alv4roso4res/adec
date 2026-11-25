@@ -22,14 +22,14 @@ class VersionState(StrEnum):
 
     - `dev`: a API não está rodando de uma imagem do pipeline (APP_VERSION não
       é um SHA, ex.: "dev");
-    - `up_to_date`: a `latest` de todas as imagens e a versão rodando são o
+    - `up_to_date`: a imagem mais nova de cada pacote e a versão rodando são o
       último commit da main;
-    - `restart_pending`: a `latest` de todas as imagens já é a main, mas a
+    - `restart_pending`: a imagem mais nova de cada pacote já é a main, mas a
       produção ainda roda a versão anterior (o vigia ainda não trocou o
       container);
-    - `pipeline_failed`: a `latest` não é a main e o run de push da main falhou
+    - `pipeline_failed`: a imagem mais nova não é a main e o run de push falhou
       ou foi cancelado (a produção fica na versão anterior);
-    - `building`: a `latest` não é a main (ou as imagens divergem entre si) e o
+    - `building`: a imagem mais nova não é a main (ou as imagens divergem) e o
       run de push da main está na fila, rodando, ainda não apareceu ou acabou
       de terminar (publicação/cache se atualizando).
     """
@@ -42,7 +42,7 @@ class VersionState(StrEnum):
 
 
 class VersionImage(ApiModel):
-    """Uma imagem no GHCR e o commit para o qual a tag `latest` aponta."""
+    """Uma imagem no GHCR e o commit da versão publicada mais recente."""
 
     name: str = Field(
         description="Nome da imagem no GHCR (GHCR_IMAGES).",
@@ -50,8 +50,8 @@ class VersionImage(ApiModel):
     )
     published_sha: str | None = Field(
         description=(
-            "SHA curto da tag `sha-xxxxxxx` que está na mesma versão de pacote "
-            "que a `latest`; null se não há `latest` (ou ela não tem tag sha-)."
+            "SHA curto da tag `sha-xxxxxxx` da versão de pacote mais recente; "
+            "null se nenhuma versão tem tag sha-."
         ),
         examples=["e8eb3e0"],
     )

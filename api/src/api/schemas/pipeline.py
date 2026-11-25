@@ -30,8 +30,8 @@ _DEPLOY_EXAMPLE = {
     "status": "success",
     "durationSeconds": 32,
     "steps": [
-        {"name": "Publicar a imagem da API (tag sha)", "status": "success", "number": 6},
-        {"name": "Promover a tag latest (API e frontend)", "status": "success", "number": 8},
+        {"name": "Publicar a imagem da API", "status": "success", "number": 5},
+        {"name": "Publicar a imagem do frontend", "status": "success", "number": 6},
     ],
 }
 _RUN_EXAMPLE = {
